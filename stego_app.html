@@ -2,171 +2,355 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Invisible Image "QR" Encoder & Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StegoCode - Image Encoder & Reader</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 30px auto; line-height: 1.5; }
+    body { font-family: sans-serif; max-width: 600px; margin: 30px auto; line-height: 1.5; padding: 0 16px; }
     .box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 24px; }
     canvas { display: none; }
-    img { max-width: 100%; height: auto; margin-top: 10px; border: 1px solid #eee; }
     button { cursor: pointer; padding: 8px 16px; margin-top: 10px; }
     input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; }
+    .status { margin-top: 15px; }
+    .success { color: green; }
+    .error { color: #b00020; }
+    .muted { color: #555; font-size: 0.92rem; }
   </style>
 </head>
 <body>
 
-  <h2>Invisible "QR" Encoder & Reader</h2>
+  <h2>Invisible Image Encoder & Reader</h2>
+  <p class="muted">Lossless PNG/BMP/WebP images only. JPEG compression destroys hidden LSB data.</p>
   <canvas id="canvas"></canvas>
 
-  <!-- ENCODER SECTION -->
   <div class="box">
     <h3>1. Encode URL/Text into Image</h3>
     <input type="file" id="uploadInput" accept="image/*"><br><br>
-    <label>Message or Link to Hide:</label>
+    <label for="secretText">Message or Link to Hide:</label>
     <input type="text" id="secretText" placeholder="https://example.com"><br>
     <button onclick="encodeMessage()">Encode & Download Image</button>
-    <div id="outputPreview"></div>
+    <div id="outputPreview" class="status"></div>
+    <div id="encodeStatus" class="status"></div>
   </div>
 
-  <!-- DECODER SECTION -->
   <div class="box">
-    <h3>2. "Scan" / Decode Image</h3>
-    <p>Upload any encoded image to extract the hidden payload:</p>
+    <h3>2. Read Protected Data</h3>
+    <p>Upload an encoded PNG to extract and repair the hidden payload.</p>
     <input type="file" id="decodeInput" accept="image/*">
     <button onclick="decodeMessage()">Read Hidden Data</button>
-    <h4 id="decodedResult" style="color: green; margin-top: 15px;"></h4>
+    <div id="decodedResult" class="status"></div>
   </div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const DELIMITER = "###END###"; // Marks where the message stops
 
-    // Helper: Convert string to binary array of bits (0 and 1)
-    function textToBits(str) {
-      let bits = [];
-      for (let i = 0; i < str.length; i++) {
-        let code = str.charCodeAt(i);
-        for (let b = 7; b >= 0; b--) {
-          bits.push((code >> b) & 1);
+    // Packet format: magic (3), version (1), UTF-8 length (2), packet CRC (2),
+    // followed by the UTF-8 payload. Each 3-byte chunk receives a checksum byte
+    // and two Reed-Solomon parity symbols, producing six embedded bytes.
+    const MAGIC = [0x53, 0x54, 0x47]; // "STG"
+    const FORMAT_VERSION = 1;
+    const DATA_BYTES_PER_BLOCK = 3;
+    const CODEWORD_BYTES = 6;
+
+    // GF(256), using the same primitive polynomial as QR codes (0x11d).
+    const GF_EXP = new Uint8Array(510);
+    const GF_LOG = new Uint8Array(256);
+    let gfValue = 1;
+    for (let i = 0; i < 255; i++) {
+      GF_EXP[i] = gfValue;
+      GF_LOG[gfValue] = i;
+      gfValue <<= 1;
+      if (gfValue & 0x100) gfValue ^= 0x11d;
+    }
+    for (let i = 255; i < GF_EXP.length; i++) GF_EXP[i] = GF_EXP[i - 255];
+
+    function gfMultiply(a, b) {
+      return a && b ? GF_EXP[GF_LOG[a] + GF_LOG[b]] : 0;
+    }
+
+    function gfDivide(a, b) {
+      if (!b) throw new Error('Finite-field division by zero.');
+      return a ? GF_EXP[(GF_LOG[a] - GF_LOG[b] + 255) % 255] : 0;
+    }
+
+    function gfPower(a, exponent) {
+      return a ? GF_EXP[((GF_LOG[a] * exponent) % 255 + 255) % 255] : 0;
+    }
+
+    function matrixMultiply(left, right) {
+      const result = Array.from({ length: left.length }, () => new Uint8Array(right[0].length));
+      for (let row = 0; row < left.length; row++) {
+        for (let column = 0; column < right[0].length; column++) {
+          for (let index = 0; index < right.length; index++) {
+            result[row][column] ^= gfMultiply(left[row][index], right[index][column]);
+          }
         }
+      }
+      return result;
+    }
+
+    function invertMatrix(source) {
+      const size = source.length;
+      const work = source.map((row, rowIndex) => [
+        ...row,
+        ...Array.from({ length: size }, (_, columnIndex) => rowIndex === columnIndex ? 1 : 0)
+      ]);
+
+      for (let column = 0; column < size; column++) {
+        let pivot = column;
+        while (pivot < size && work[pivot][column] === 0) pivot++;
+        if (pivot === size) throw new Error('Reed-Solomon matrix is singular.');
+        [work[column], work[pivot]] = [work[pivot], work[column]];
+
+        const pivotInverse = gfDivide(1, work[column][column]);
+        for (let value = 0; value < size * 2; value++) {
+          work[column][value] = gfMultiply(work[column][value], pivotInverse);
+        }
+
+        for (let row = 0; row < size; row++) {
+          if (row === column) continue;
+          const factor = work[row][column];
+          if (!factor) continue;
+          for (let value = 0; value < size * 2; value++) {
+            work[row][value] ^= gfMultiply(factor, work[column][value]);
+          }
+        }
+      }
+
+      return work.map(row => row.slice(size));
+    }
+
+    // This is a systematic 4-data/2-parity Reed-Solomon matrix. The first four
+    // rows remain the data, while the final two rows calculate parity symbols.
+    function createCodingMatrix() {
+      const vandermonde = Array.from({ length: CODEWORD_BYTES }, (_, row) =>
+        Array.from({ length: 4 }, (_, column) => gfPower(row + 1, column))
+      );
+      const topInverse = invertMatrix(vandermonde.slice(0, 4));
+      return matrixMultiply(vandermonde, topInverse);
+    }
+
+    const CODING_MATRIX = createCodingMatrix();
+
+    function crc8(bytes) {
+      let crc = 0;
+      for (const byte of bytes) {
+        crc ^= byte;
+        for (let bit = 0; bit < 8; bit++) {
+          crc = (crc & 0x80) ? ((crc << 1) ^ 0x07) & 0xff : (crc << 1) & 0xff;
+        }
+      }
+      return crc;
+    }
+
+    function crc16(bytes) {
+      let crc = 0xffff;
+      for (const byte of bytes) {
+        crc ^= byte << 8;
+        for (let bit = 0; bit < 8; bit++) {
+          crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+        }
+      }
+      return crc;
+    }
+
+    function encodeCodeword(dataBytes) {
+      const block = [dataBytes[0], dataBytes[1], dataBytes[2], crc8(dataBytes)];
+      const codeword = block.slice();
+      for (let parityRow = 4; parityRow < CODEWORD_BYTES; parityRow++) {
+        let parity = 0;
+        for (let column = 0; column < block.length; column++) {
+          parity ^= gfMultiply(CODING_MATRIX[parityRow][column], block[column]);
+        }
+        codeword.push(parity);
+      }
+      return codeword;
+    }
+
+    function isValidCodeword(codeword) {
+      const expected = [];
+      for (let row = 0; row < CODEWORD_BYTES; row++) {
+        let value = 0;
+        for (let column = 0; column < 4; column++) {
+          value ^= gfMultiply(CODING_MATRIX[row][column], codeword[column]);
+        }
+        expected.push(value);
+      }
+      return expected.every((value, index) => value === codeword[index]) && crc8(codeword.slice(0, 3)) === codeword[3];
+    }
+
+    // For a six-symbol codeword, bounded correction is compact and auditable:
+    // test each possible damaged symbol and all 256 values. The checksum keeps
+    // an incorrect candidate from being accepted.
+    function repairCodeword(received) {
+      if (received.every(value => value !== null) && isValidCodeword(received)) {
+        return { codeword: received, corrected: false };
+      }
+
+      const original = received.slice();
+      let repairedCodeword = null;
+      let candidateCount = 0;
+      for (let position = 0; position < CODEWORD_BYTES; position++) {
+        for (let value = 0; value < 256; value++) {
+          const candidate = original.slice();
+          candidate[position] = value;
+          if (isValidCodeword(candidate)) {
+            candidateCount++;
+            if (candidateCount > 1) throw new Error('A block has ambiguous Reed-Solomon corrections.');
+            repairedCodeword = candidate;
+          }
+        }
+      }
+
+      if (candidateCount !== 1) throw new Error('A block has more than one damaged symbol.');
+      return { codeword: repairedCodeword, corrected: true };
+    }
+
+    function utf8Bytes(text) {
+      return Array.from(new TextEncoder().encode(text));
+    }
+
+    function bytesToText(bytes) {
+      return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes));
+    }
+
+    function makePacket(text) {
+      const payload = utf8Bytes(text);
+      if (payload.length > 0xffff) throw new Error('Message is too long. The maximum is 65,535 UTF-8 bytes.');
+      const header = [...MAGIC, FORMAT_VERSION, payload.length >> 8, payload.length & 0xff];
+      const packetCrc = crc16([...header, ...payload]);
+      return [...header, packetCrc >> 8, packetCrc & 0xff, ...payload];
+    }
+
+    function protectPacket(packet) {
+      const protectedBytes = [];
+      for (let offset = 0; offset < packet.length; offset += 3) {
+        const data = packet.slice(offset, offset + 3);
+        while (data.length < 3) data.push(0);
+        protectedBytes.push(...encodeCodeword(data));
+      }
+      return protectedBytes;
+    }
+
+    function readProtectedPacket(bytes) {
+      if (bytes.length < 12) throw new Error('The image does not contain a complete protected header.');
+      const firstData = [];
+      for (let offset = 0; offset < 12; offset += 6) {
+        firstData.push(...repairCodeword(bytes.slice(offset, offset + 6)).codeword.slice(0, 3));
+      }
+      if (!MAGIC.every((value, index) => firstData[index] === value) || firstData[3] !== FORMAT_VERSION) {
+        throw new Error('No StegoCode packet was found.');
+      }
+
+      const payloadLength = (firstData[4] << 8) | firstData[5];
+      const packetLength = 8 + payloadLength;
+      const blockCount = Math.ceil(packetLength / 3);
+      const requiredBytes = blockCount * 6;
+      if (bytes.length < requiredBytes) throw new Error('The protected payload is incomplete.');
+
+      const packet = [];
+      let correctedBlocks = 0;
+      for (let offset = 0; offset < requiredBytes; offset += 6) {
+        const repaired = repairCodeword(bytes.slice(offset, offset + 6));
+        packet.push(...repaired.codeword.slice(0, 3));
+        if (repaired.corrected) correctedBlocks++;
+      }
+
+      const cleanPacket = packet.slice(0, packetLength);
+      const expectedCrc = (cleanPacket[6] << 8) | cleanPacket[7];
+      const content = cleanPacket.slice(0, 6).concat(cleanPacket.slice(8));
+      if (crc16(content) !== expectedCrc) throw new Error('The packet checksum failed after correction.');
+      return { payload: bytesToText(cleanPacket.slice(8)), correctedBlocks };
+    }
+
+    function bytesToBits(bytes) {
+      const bits = [];
+      for (const byte of bytes) {
+        for (let bit = 7; bit >= 0; bit--) bits.push((byte >> bit) & 1);
       }
       return bits;
     }
 
-    // Helper: Convert array of bits back into a string
-    function bitsToText(bits) {
-      let chars = [];
-      for (let i = 0; i < bits.length; i += 8) {
-        let byte = 0;
-        for (let b = 0; b < 8; b++) {
-          byte = (byte << 1) | bits[i + b];
-        }
-        chars.push(String.fromCharCode(byte));
+    function bitsToBytes(bits) {
+      const bytes = [];
+      for (let offset = 0; offset < bits.length; offset += 8) {
+        let value = 0;
+        for (let bit = 0; bit < 8; bit++) value = (value << 1) | bits[offset + bit];
+        bytes.push(value);
       }
-      return chars.join('');
+      return bytes;
     }
 
-    // 1. ENCODE
+    function extractBits(data, bitCount) {
+      const bits = [];
+      for (let index = 0; index < data.length && bits.length < bitCount; index++) {
+        if ((index + 1) % 4 === 0) continue;
+        bits.push(data[index] & 1);
+      }
+      return bits;
+    }
+
+    function setStatus(id, text, className) {
+      const element = document.getElementById(id);
+      element.className = `status ${className || ''}`;
+      element.innerText = text;
+    }
+
+    function loadImage(file, callback) {
+      const image = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      image.onload = () => { URL.revokeObjectURL(objectUrl); callback(image); };
+      image.onerror = () => { URL.revokeObjectURL(objectUrl); setStatus('decodedResult', 'Could not read that image.', 'error'); };
+      image.src = objectUrl;
+    }
+
     function encodeMessage() {
-      const fileInput = document.getElementById('uploadInput');
+      const file = document.getElementById('uploadInput').files[0];
       const text = document.getElementById('secretText').value;
-
-      if (!fileInput.files[0] || !text) {
-        alert("Please choose an image and enter some text.");
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imgData.data; // [R, G, B, A, R, G, B, A, ...]
-        const fullPayload = text + DELIMITER;
-        const bits = textToBits(fullPayload);
-
-        // Check if the image has enough pixels
-        // (each pixel has 3 usable color channels: R, G, B)
-        if (bits.length > (data.length / 4) * 3) {
-          alert("Image is too small to hold this much text.");
-          return;
-        }
-
-        let bitIndex = 0;
-        for (let i = 0; i < data.length && bitIndex < bits.length; i++) {
-          // Skip Alpha channel (every 4th byte)
-          if ((i + 1) % 4 === 0) continue;
-
-          // Replace the lowest bit of the color with our data bit
-          // e.g., if color is 254 (11111110) and bit is 1 -> 255 (11111111)
-          data[i] = (data[i] & ~1) | bits[bitIndex];
-          bitIndex++;
-        }
-
-        ctx.putImageData(imgData, 0, 0);
-
-        // Export as PNG (JPEG will compress and destroy the hidden bits)
-        const pngUrl = canvas.toDataURL("image/png");
-        const downloadLink = document.createElement('a');
-        downloadLink.href = pngUrl;
-        downloadLink.download = "encoded_image.png";
-        downloadLink.innerText = "Click here to download your encoded image";
-        
-        const preview = document.getElementById('outputPreview');
-        preview.innerHTML = "";
-        preview.appendChild(downloadLink);
-      };
-
-      img.src = URL.createObjectURL(fileInput.files[0]);
+      if (!file || !text) { alert('Please choose an image and enter some text.'); return; }
+      try {
+        const bits = bytesToBits(protectPacket(makePacket(text)));
+        loadImage(file, image => {
+          canvas.width = image.width;
+          canvas.height = image.height;
+          ctx.drawImage(image, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const capacity = (imageData.data.length / 4) * 3;
+          if (bits.length > capacity) { alert(`Image is too small. This protected message needs ${bits.length} bits, but the image holds ${capacity}.`); return; }
+          let bitIndex = 0;
+          for (let index = 0; index < imageData.data.length && bitIndex < bits.length; index++) {
+            if ((index + 1) % 4 === 0) continue;
+            imageData.data[index] = (imageData.data[index] & 0xfe) | bits[bitIndex++];
+          }
+          ctx.putImageData(imageData, 0, 0);
+          const downloadLink = document.createElement('a');
+          downloadLink.href = canvas.toDataURL('image/png');
+          downloadLink.download = 'encoded_image.png';
+          downloadLink.innerText = 'Click here to download your protected image';
+          const preview = document.getElementById('outputPreview');
+          preview.innerHTML = '';
+          preview.appendChild(downloadLink);
+          setStatus('encodeStatus', `Encoded ${text.length} characters with Reed-Solomon parity.`, 'success');
+        });
+      } catch (error) { alert(error.message); }
     }
 
-    // 2. DECODE
     function decodeMessage() {
-      const fileInput = document.getElementById('decodeInput');
-      if (!fileInput.files[0]) {
-        alert("Please choose an image to decode.");
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imgData.data;
-        let bits = [];
-        let decodedText = "";
-
-        for (let i = 0; i < data.length; i++) {
-          if ((i + 1) % 4 === 0) continue; // Skip Alpha
-
-          // Read the lowest bit
-          bits.push(data[i] & 1);
-
-          // Every 8 bits, evaluate the character
-          if (bits.length % 8 === 0) {
-            let lastChar = String.fromCharCode(
-              bits.slice(-8).reduce((acc, bit) => (acc << 1) | bit, 0)
-            );
-            decodedText += lastChar;
-
-            // Check if we hit the delimiter
-            if (decodedText.endsWith(DELIMITER)) {
-              const cleanMessage = decodedText.replace(DELIMITER, '');
-              document.getElementById('decodedResult').innerText = "Found Hidden Data: " + cleanMessage;
-              return;
-            }
-          }
-        }
-
-        document.getElementById('decodedResult').innerText = "No hidden data found.";
-      };
-
-      img.src = URL.createObjectURL(fileInput.files[0]);
+      const file = document.getElementById('decodeInput').files[0];
+      if (!file) { alert('Please choose an image to decode.'); return; }
+      loadImage(file, image => {
+        try {
+          canvas.width = image.width;
+          canvas.height = image.height;
+          ctx.drawImage(image, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const availableBytes = Math.floor(((imageData.data.length / 4) * 3) / 8);
+          const rawBytes = bitsToBytes(extractBits(imageData.data, availableBytes * 8));
+          const result = readProtectedPacket(rawBytes);
+          const note = result.correctedBlocks ? ` Repaired ${result.correctedBlocks} damaged block${result.correctedBlocks === 1 ? '' : 's'} using Reed-Solomon parity.` : ' Reed-Solomon parity verified.';
+          setStatus('decodedResult', `Found Hidden Data: ${result.payload}${note}`, 'success');
+        } catch (error) { setStatus('decodedResult', `Could not decode image: ${error.message}`, 'error'); }
+      });
     }
   </script>
 </body>

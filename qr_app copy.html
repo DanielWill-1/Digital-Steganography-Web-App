@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>StegoCode QR Studio</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --border: #111111;
+      --text: #111111;
+      --muted: #555555;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .shell { width: min(1000px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 56px; }
+    header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; border-bottom: 2px solid #111; padding-bottom: 20px; }
+    .brand { display: flex; gap: 14px; align-items: center; }
+    .brand-mark { display: none; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 5px; font-size: clamp(28px, 5vw, 44px); letter-spacing: -0.04em; font-weight: 700; }
+    .tagline { margin: 0; color: var(--muted); font-size: 15px; }
+    .badge { border: 1px solid #111; padding: 7px 10px; color: #111; font-size: 11px; white-space: nowrap; }
+
+    .tabs { display: flex; gap: 0; width: fit-content; margin-bottom: 18px; border-bottom: 1px solid #111; }
+    .tab { border: 0; border-bottom: 3px solid transparent; padding: 10px 18px; color: #555; background: transparent; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: #111; border-bottom-color: #111; }
+    .panel { display: none; border: 1px solid var(--border); padding: clamp(20px, 4vw, 34px); background: var(--panel); }
+    .panel.active { display: block; }
+    .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 25px; }
+    h2 { margin-bottom: 7px; font-size: 24px; letter-spacing: -0.025em; }
+    .description { max-width: 580px; margin-bottom: 0; color: var(--muted); line-height: 1.6; font-size: 14px; }
+    .eyebrow { margin-bottom: 8px; color: #555; text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; font-weight: 800; }
+
+    label { display: block; margin-bottom: 9px; color: #111; font-size: 13px; font-weight: 700; }
+    textarea, select { width: 100%; border: 1px solid var(--border); border-radius: 0; padding: 12px; color: var(--text); outline: none; background: #fff; font: inherit; font-size: 15px; }
+    textarea { min-height: 125px; line-height: 1.5; resize: vertical; }
+    textarea:focus, select:focus { border-color: #000; }
+    .field { margin-bottom: 20px; }
+    .options { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+    .option { flex: 1 1 180px; }
+    select { padding: 11px 12px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    button, .button-link { border: 1px solid #111; border-radius: 0; padding: 10px 15px; color: #fff; background: #111; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; }
+    button:hover, .button-link:hover { color: #111; background: #fff; }
+    button.secondary, .button-link.secondary { border: 1px solid #111; color: #111; background: #fff; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+
+    .generator-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 30px; align-items: start; }
+    .qr-stage { display: grid; place-items: center; min-height: 300px; border: 1px solid #111; padding: 22px; background: #fff; }
+    #qrCode { display: grid; place-items: center; min-height: 240px; min-width: 240px; padding: 12px; background: white; }
+    #qrCode canvas, #qrCode img { display: block; max-width: 100%; height: auto; }
+    .empty-state { color: #555; text-align: center; font-size: 13px; }
+    .helper { color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+    .scan-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .8fr); gap: 26px; align-items: start; }
+    .drop-zone { display: grid; place-items: center; min-height: 220px; border: 1px dashed #111; padding: 28px; text-align: center; background: #fff; }
+    .upload-icon { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 12px; color: #111; font-size: 22px; }
+    input[type="file"] { width: 100%; max-width: 330px; color: var(--muted); font-size: 12px; }
+    input[type="file"]::file-selector-button { margin-right: 9px; border: 1px solid #111; border-radius: 0; padding: 9px 11px; color: white; background: #111; font: inherit; font-weight: 700; cursor: pointer; }
+    .camera-box { overflow: hidden; border: 1px solid #111; background: #111; }
+    #cameraVideo { display: block; width: 100%; min-height: 220px; max-height: 360px; object-fit: contain; background: #111; }
+    #cameraVideo[hidden] { display: none; }
+    .camera-placeholder { display: grid; place-items: center; min-height: 220px; padding: 20px; color: var(--muted); text-align: center; font-size: 13px; }
+    .result { margin-top: 22px; border: 1px solid #111; padding: 17px; background: #fff; }
+    .result.hidden { display: none; }
+    .result-label { margin-bottom: 8px; color: #111; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    #scanResult { margin: 0; overflow-wrap: anywhere; color: #111; line-height: 1.55; white-space: pre-wrap; }
+    .status { min-height: 19px; margin: 15px 0 0; color: var(--muted); font-size: 13px; }
+    .status.error, .status.success { color: #111; font-weight: 700; }
+    .footer-note { margin-top: 20px; color: #555; font-size: 12px; text-align: center; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 22px, 620px); padding-top: 25px; }
+      header { margin-bottom: 25px; }
+      .badge { display: none; }
+      .generator-layout, .scan-layout { grid-template-columns: 1fr; }
+      .qr-stage { min-height: 270px; }
+      .panel-heading { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">⌗</div>
+        <div>
+          <h1>StegoCode QR Studio</h1>
+          <p class="tagline">Create and scan clean, shareable QR codes in your browser.</p>
+        </div>
+      </div>
+      <div class="badge">PRIVATE · CLIENT-SIDE</div>
+    </header>
+
+    <nav class="tabs" aria-label="QR tools">
+      <button class="tab active" type="button" data-panel="generatePanel">Generate QR</button>
+      <button class="tab" type="button" data-panel="scanPanel">Scan QR</button>
+    </nav>
+
+    <section class="panel active" id="generatePanel" aria-labelledby="generateTitle">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">01 · Encode</div>
+          <h2 id="generateTitle">Turn any message into a QR code</h2>
+            <p class="description">Create a genuine Version 1 QR symbol from scratch. Encoding happens locally; no QR-generation library is used.</p>
+        </div>
+      </div>
+      <div class="generator-layout">
+        <div>
+          <div class="field">
+            <label for="qrText">Text or URL</label>
+            <textarea id="qrText" placeholder="https://example.com" maxlength="2000" aria-describedby="characterCount"></textarea>
+            <div class="helper" id="characterCount">0 UTF-8 bytes</div>
+          </div>
+          <div class="options">
+            <div class="option">
+              <label for="qrSize">Image size</label>
+              <select id="qrSize">
+                <option value="220">Small · 220 px</option>
+                <option value="300" selected>Medium · 300 px</option>
+                <option value="420">Large · 420 px</option>
+              </select>
+            </div>
+            <div class="option">
+              <label for="qrCorrection">Error correction</label>
+              <select id="qrCorrection">
+                <option value="L">Low · 7%</option>
+                <option value="M" selected>Medium · 15%</option>
+                <option value="Q">High · 25%</option>
+                <option value="H">Very high · 30%</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="generateButton" type="button">Generate QR code</button>
+            <button id="copyButton" class="secondary" type="button" disabled>Copy content</button>
+            <button id="downloadButton" class="secondary" type="button" disabled>Download PNG</button>
+          </div>
+          <p id="generateStatus" class="status" role="status"></p>
+        </div>
+        <div class="qr-stage" aria-live="polite">
+          <div id="qrCode"><span class="empty-state">Your QR code will appear here.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="scanPanel" aria-labelledby="scanTitle">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">02 · Decode</div>
+          <h2 id="scanTitle">Scan a QR code</h2>
+          <p class="description">Upload a QR image or use your camera. Scanning happens locally in your browser.</p>
+        </div>
+      </div>
+      <div class="scan-layout">
+        <div>
+          <div class="drop-zone">
+            <div class="upload-icon" aria-hidden="true">↑</div>
+            <label for="imageInput">Choose a QR image</label>
+            <input id="imageInput" type="file" accept="image/*" />
+            <div class="helper">PNG, JPG, GIF, or another supported image format</div>
+          </div>
+          <p id="scanStatus" class="status" role="status">Select an image or start the camera.</p>
+        </div>
+        <div>
+          <div class="camera-box">
+            <video id="cameraVideo" playsinline muted hidden></video>
+            <div id="cameraPlaceholder" class="camera-placeholder">Camera preview will appear here.</div>
+          </div>
+          <div class="actions">
+            <button id="startCameraButton" type="button">Use camera</button>
+            <button id="stopCameraButton" class="secondary" type="button" disabled>Stop camera</button>
+          </div>
+        </div>
+      </div>
+      <div id="resultBox" class="result hidden" aria-live="polite">
+        <div class="result-label">Decoded content</div>
+        <p id="scanResult"></p>
+        <div class="actions">
+          <button id="copyResultButton" class="secondary" type="button">Copy result</button>
+          <a id="openResultLink" class="button-link" href="#" target="_blank" rel="noopener" hidden>Open link</a>
+        </div>
+      </div>
+      <canvas id="scanCanvas" class="sr-only"></canvas>
+    </section>
+
+    <p class="footer-note">QR generation and scanning are performed in your browser.</p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script>
+    (() => {
+      const qrText = document.getElementById('qrText');
+      const qrSize = document.getElementById('qrSize');
+      const qrCorrection = document.getElementById('qrCorrection');
+      const qrCode = document.getElementById('qrCode');
+      const generateStatus = document.getElementById('generateStatus');
+      const copyButton = document.getElementById('copyButton');
+      const downloadButton = document.getElementById('downloadButton');
+      const characterCount = document.getElementById('characterCount');
+      const imageInput = document.getElementById('imageInput');
+      const scanCanvas = document.getElementById('scanCanvas');
+      const scanContext = scanCanvas.getContext('2d', { willReadFrequently: true });
+      const cameraVideo = document.getElementById('cameraVideo');
+      const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+      const startCameraButton = document.getElementById('startCameraButton');
+      const stopCameraButton = document.getElementById('stopCameraButton');
+      const scanStatus = document.getElementById('scanStatus');
+      const resultBox = document.getElementById('resultBox');
+      const scanResult = document.getElementById('scanResult');
+      const copyResultButton = document.getElementById('copyResultButton');
+      const openResultLink = document.getElementById('openResultLink');
+      let generated = false;
+      let cameraStream = null;
+      let scanFrame = null;
+
+      document.querySelectorAll('.tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
+          document.querySelectorAll('.panel').forEach((panel) => panel.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById(tab.dataset.panel).classList.add('active');
+        });
+      });
+
+      function setStatus(element, message, type) {
+        element.textContent = message;
+        element.className = 'status' + (type ? ' ' + type : '');
+      }
+
+      function updateCount() {
+        const byteLength = new TextEncoder().encode(qrText.value).length;
+        characterCount.textContent = byteLength + ' UTF-8 bytes';
+      }
+
+      const QR_SIZE = 21;
+      const QR_TOTAL_CODEWORDS = 26;
+      const QR_ECC_CODEWORDS = { L: 7, M: 10, Q: 13, H: 17 };
+      const QR_ECC_FORMAT_BITS = { L: 1, M: 0, Q: 3, H: 2 };
+      const QR_EXP = new Uint8Array(512);
+      const QR_LOG = new Uint8Array(256);
+      let qrFieldValue = 1;
+      for (let i = 0; i < 255; i++) {
+        QR_EXP[i] = qrFieldValue;
+        QR_LOG[qrFieldValue] = i;
+        qrFieldValue <<= 1;
+        if (qrFieldValue & 0x100) qrFieldValue ^= 0x11d;
+      }
+      for (let i = 255; i < QR_EXP.length; i++) QR_EXP[i] = QR_EXP[i - 255];
+
+      function qrMultiply(a, b) {
+        return a && b ? QR_EXP[QR_LOG[a] + QR_LOG[b]] : 0;
+      }
+
+      function qrGeneratorPolynomial(eccLength) {
+        let polynomial = [1];
+        for (let i = 0; i < eccLength; i++) {
+          const next = Array(polynomial.length + 1).fill(0);
+          const root = QR_EXP[i];
+          for (let j = 0; j < polynomial.length; j++) {
+            next[j] ^= polynomial[j];
+            next[j + 1] ^= qrMultiply(polynomial[j], root);
+          }
+          polynomial = next;
+        }
+        return polynomial;
+      }
+
+      function qrReedSolomon(data, eccLength) {
+        const remainder = data.slice();
+        remainder.push(...Array(eccLength).fill(0));
+        const generator = qrGeneratorPolynomial(eccLength);
+        for (let i = 0; i < data.length; i++) {
+          const factor = remainder[i];
+          if (!factor) continue;
+          for (let j = 0; j < generator.length; j++) remainder[i + j] ^= qrMultiply(generator[j], factor);
+        }
+        return remainder.slice(data.length);
+      }
+
+      function qrBitsToBytes(bits) {
+        const bytes = [];
+        for (let i = 0; i < bits.length; i += 8) {
+          let value = 0;
+          for (let j = 0; j < 8; j++) value = (value << 1) | (bits[i + j] || 0);
+          bytes.push(value);
+        }
+        return bytes;
+      }
+
+      function qrCodewords(text, correction) {
+        const bytes = Array.from(new TextEncoder().encode(text));
+        const eccLength = QR_ECC_CODEWORDS[correction];
+        const dataCapacity = QR_TOTAL_CODEWORDS - eccLength;
+        const bits = [0, 1, 0, 0]; // Byte mode.
+        for (let i = 7; i >= 0; i--) bits.push((bytes.length >> i) & 1);
+        bytes.forEach((byte) => {
+          for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1);
+        });
+        if (bits.length > dataCapacity * 8) {
+          throw new Error(`Version 1-${correction} supports only ${dataCapacity - 2} UTF-8 bytes in byte mode.`);
+        }
+        for (let i = 0; i < Math.min(4, dataCapacity * 8 - bits.length); i++) bits.push(0);
+        while (bits.length % 8) bits.push(0);
+        const data = qrBitsToBytes(bits);
+        for (let i = 0; data.length < dataCapacity; i++) data.push(i % 2 ? 0x11 : 0xec);
+        return { data, ecc: qrReedSolomon(data, eccLength) };
+      }
+
+      function qrBchFormat(value) {
+        let remainder = value << 10;
+        while (remainder >= 0x400) {
+          const shift = Math.floor(Math.log2(remainder)) - 10;
+          remainder ^= 0x537 << shift;
+        }
+        return ((value << 10) | remainder) ^ 0x5412;
+      }
+
+      function qrMask(mask, row, column) {
+        switch (mask) {
+          case 0: return (row + column) % 2 === 0;
+          case 1: return row % 2 === 0;
+          case 2: return column % 3 === 0;
+          case 3: return (row + column) % 3 === 0;
+          case 4: return (Math.floor(row / 2) + Math.floor(column / 3)) % 2 === 0;
+          case 5: return (row * column) % 2 + (row * column) % 3 === 0;
+          case 6: return ((row * column) % 2 + (row * column) % 3) % 2 === 0;
+          default: return ((row * column) % 3 + (row + column) % 2) % 2 === 0;
+        }
+      }
+
+      function qrPenalty(matrix) {
+        let score = 0;
+        const size = matrix.length;
+        const linePenalty = (line) => {
+          let runColor = line[0];
+          let runLength = 1;
+          for (let i = 1; i <= line.length; i++) {
+            if (i < line.length && line[i] === runColor) runLength++;
+            else {
+              if (runLength >= 5) score += 3 + runLength - 5;
+              runColor = line[i];
+              runLength = 1;
+            }
+          }
+          for (let i = 0; i <= line.length - 7; i++) {
+            if (line.slice(i, i + 7).map((value) => value ? 1 : 0).join('') === '1011101') {
+              const before = i >= 4 && line.slice(i - 4, i).every((bit) => bit === 0);
+              const after = i + 11 <= line.length && line.slice(i + 7, i + 11).every((bit) => bit === 0);
+              if (before || after) score += 40;
+            }
+          }
+        };
+        for (let row = 0; row < size; row++) linePenalty(matrix[row]);
+        for (let column = 0; column < size; column++) linePenalty(matrix.map((row) => row[column]));
+        for (let row = 0; row < size - 1; row++) {
+          for (let column = 0; column < size - 1; column++) {
+            const value = matrix[row][column];
+            if (matrix[row][column + 1] === value && matrix[row + 1][column] === value && matrix[row + 1][column + 1] === value) score += 3;
+          }
+        }
+        let dark = 0;
+        matrix.forEach((row) => row.forEach((value) => { if (value) dark++; }));
+        score += Math.floor(Math.abs((dark * 100) / (size * size) - 50) / 5) * 10;
+        return score;
+      }
+
+      function qrBuildMatrix(codewords, correction, mask) {
+        const matrix = Array.from({ length: QR_SIZE }, () => Array(QR_SIZE).fill(null));
+        const setFunction = (row, column, value) => { matrix[row][column] = Boolean(value); };
+        const finder = (top, left) => {
+          for (let row = -1; row <= 7; row++) {
+            for (let column = -1; column <= 7; column++) {
+              const dark = row >= 0 && row <= 6 && column >= 0 && column <= 6 && (row === 0 || row === 6 || column === 0 || column === 6 || (row >= 2 && row <= 4 && column >= 2 && column <= 4));
+              if (top + row >= 0 && top + row < QR_SIZE && left + column >= 0 && left + column < QR_SIZE) setFunction(top + row, left + column, dark);
+            }
+          }
+        };
+        finder(0, 0);
+        finder(0, QR_SIZE - 7);
+        finder(QR_SIZE - 7, 0);
+        for (let i = 8; i < QR_SIZE - 8; i++) {
+          if (matrix[6][i] === null) setFunction(6, i, i % 2 === 0);
+          if (matrix[i][6] === null) setFunction(i, 6, i % 2 === 0);
+        }
+        setFunction(QR_SIZE - 8, 8, true);
+        const format = qrBchFormat((QR_ECC_FORMAT_BITS[correction] << 3) | mask);
+        for (let i = 0; i < 15; i++) {
+          const bit = ((format >> i) & 1) !== 0;
+          if (i < 6) setFunction(i, 8, bit);
+          else if (i < 8) setFunction(i + 1, 8, bit);
+          else setFunction(QR_SIZE - 15 + i, 8, bit);
+          if (i < 8) setFunction(8, QR_SIZE - 1 - i, bit);
+          else if (i === 8) setFunction(8, 7, bit);
+          else setFunction(8, 14 - i, bit);
+        }
+        const dataBits = [];
+        codewords.forEach((byte) => { for (let i = 7; i >= 0; i--) dataBits.push((byte >> i) & 1); });
+        let bitIndex = 0;
+        let upward = true;
+        for (let right = QR_SIZE - 1; right >= 1; right -= 2) {
+          if (right === 6) right--;
+          for (let offset = 0; offset < QR_SIZE; offset++) {
+            const row = upward ? QR_SIZE - 1 - offset : offset;
+            for (let column = right; column >= right - 1; column--) {
+              if (matrix[row][column] !== null) continue;
+              const bit = bitIndex < dataBits.length ? dataBits[bitIndex++] : 0;
+              matrix[row][column] = Boolean(bit ^ (qrMask(mask, row, column) ? 1 : 0));
+            }
+          }
+          upward = !upward;
+        }
+        return matrix;
+      }
+
+      function qrMatrix(text, correction) {
+        const blocks = qrCodewords(text, correction);
+        const codewords = blocks.data.concat(blocks.ecc);
+        let best = null;
+        for (let mask = 0; mask < 8; mask++) {
+          const matrix = qrBuildMatrix(codewords, correction, mask);
+          const penalty = qrPenalty(matrix);
+          if (!best || penalty < best.penalty) best = { matrix, penalty };
+        }
+        return best.matrix;
+      }
+
+      function qrRender(matrix, pixels) {
+        const canvas = document.createElement('canvas');
+        canvas.width = pixels;
+        canvas.height = pixels;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, pixels, pixels);
+        context.fillStyle = '#080b16';
+        const total = QR_SIZE + 8;
+        const modulePixels = Math.max(1, Math.floor(pixels / total));
+        const offset = Math.floor((pixels - modulePixels * total) / 2);
+        matrix.forEach((row, y) => row.forEach((dark, x) => {
+          if (dark) context.fillRect(offset + (x + 4) * modulePixels, offset + (y + 4) * modulePixels, modulePixels, modulePixels);
+        }));
+        canvas.setAttribute('aria-label', 'Generated Version 1 QR code');
+        return canvas;
+      }
+
+      function generateQr() {
+        const value = qrText.value.trim();
+        if (!value) {
+          generated = false;
+          qrCode.innerHTML = '<span class="empty-state">Enter text or a URL first.</span>';
+          copyButton.disabled = true;
+          downloadButton.disabled = true;
+          setStatus(generateStatus, 'Please enter something to encode.', 'error');
+          qrText.focus();
+          return;
+        }
+        try {
+          const matrix = qrMatrix(value, qrCorrection.value);
+          qrCode.innerHTML = '';
+          qrCode.appendChild(qrRender(matrix, Number(qrSize.value)));
+          generated = true;
+          copyButton.disabled = false;
+          downloadButton.disabled = false;
+          setStatus(generateStatus, 'Version 1 (21×21) QR code ready. Reed-Solomon parity and mask selection applied.', 'success');
+        } catch (error) {
+          generated = false;
+          qrCode.innerHTML = '<span class="empty-state">The message is too large for Version 1.</span>';
+          copyButton.disabled = true;
+          downloadButton.disabled = true;
+          setStatus(generateStatus, error.message, 'error');
+        }
+      }
+
+      async function copyText(value, statusElement, successMessage) {
+        try {
+          await navigator.clipboard.writeText(value);
+          setStatus(statusElement, successMessage, 'success');
+        } catch (error) {
+          setStatus(statusElement, 'Copy is unavailable in this browser. Select and copy the text manually.', 'error');
+        }
+      }
+
+      function downloadQr() {
+        if (!generated) return;
+        const canvas = qrCode.querySelector('canvas');
+        const image = qrCode.querySelector('img');
+        const link = document.createElement('a');
+        link.download = 'stegocode-qr.png';
+        if (canvas) {
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          return;
+        }
+        if (image) {
+          const exportCanvas = document.createElement('canvas');
+          exportCanvas.width = Number(qrSize.value);
+          exportCanvas.height = Number(qrSize.value);
+          exportCanvas.getContext('2d').drawImage(image, 0, 0, exportCanvas.width, exportCanvas.height);
+          link.href = exportCanvas.toDataURL('image/png');
+          link.click();
+        }
+      }
+
+      function showResult(value) {
+        scanResult.textContent = value;
+        resultBox.classList.remove('hidden');
+        if (/^https?:\/\//i.test(value)) {
+          openResultLink.href = value;
+          openResultLink.hidden = false;
+        } else {
+          openResultLink.hidden = true;
+        }
+      }
+
+      function decodeImage(image) {
+        if (typeof jsQR === 'undefined') {
+          setStatus(scanStatus, 'The QR scanner library could not load. Check your connection and refresh.', 'error');
+          return false;
+        }
+        const maxDimension = 1600;
+        const imageWidth = image.naturalWidth || image.width;
+        const imageHeight = image.naturalHeight || image.height;
+        const scale = Math.min(1, maxDimension / Math.max(imageWidth, imageHeight));
+        scanCanvas.width = Math.max(1, Math.floor(imageWidth * scale));
+        scanCanvas.height = Math.max(1, Math.floor(imageHeight * scale));
+        scanContext.drawImage(image, 0, 0, scanCanvas.width, scanCanvas.height);
+        const imageData = scanContext.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+        if (code) {
+          showResult(code.data);
+          setStatus(scanStatus, 'QR code found.', 'success');
+          return true;
+        }
+        setStatus(scanStatus, 'No QR code found in that image. Try a clearer, uncropped image.', 'error');
+        return false;
+      }
+
+      function scanCameraFrame() {
+        if (!cameraStream || cameraVideo.readyState !== cameraVideo.HAVE_ENOUGH_DATA || !cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+          scanFrame = requestAnimationFrame(scanCameraFrame);
+          return;
+        }
+        scanCanvas.width = cameraVideo.videoWidth;
+        scanCanvas.height = cameraVideo.videoHeight;
+        scanContext.drawImage(cameraVideo, 0, 0, scanCanvas.width, scanCanvas.height);
+        const imageData = scanContext.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+        const code = typeof jsQR === 'function' ? jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' }) : null;
+        if (code) {
+          showResult(code.data);
+          setStatus(scanStatus, 'QR code found. Camera stopped.', 'success');
+          stopCamera();
+          return;
+        }
+        scanFrame = requestAnimationFrame(scanCameraFrame);
+      }
+
+      function waitForVideoReady() {
+        if (cameraVideo.readyState >= cameraVideo.HAVE_METADATA && cameraVideo.videoWidth > 0 && cameraVideo.videoHeight > 0) {
+          return Promise.resolve();
+        }
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('Camera video did not become ready.'));
+          }, 8000);
+          const cleanup = () => {
+            clearTimeout(timeout);
+            cameraVideo.removeEventListener('loadedmetadata', handleReady);
+            cameraVideo.removeEventListener('error', handleError);
+          };
+          const handleReady = () => {
+            if (cameraVideo.videoWidth > 0 && cameraVideo.videoHeight > 0) {
+              cleanup();
+              resolve();
+            }
+          };
+          const handleError = () => {
+            cleanup();
+            reject(new Error('Camera video could not be displayed.'));
+          };
+          cameraVideo.addEventListener('loadedmetadata', handleReady);
+          cameraVideo.addEventListener('error', handleError);
+        });
+      }
+
+      async function requestCameraStream() {
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+        } catch (error) {
+          // Laptop cameras may not support a facingMode constraint.
+          return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
+      }
+
+      async function startCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus(scanStatus, 'Camera access is not supported by this browser. Upload an image instead.', 'error');
+          return;
+        }
+        try {
+          stopCamera();
+          setStatus(scanStatus, 'Starting camera…', '');
+          cameraStream = await requestCameraStream();
+          cameraVideo.autoplay = true;
+          cameraVideo.muted = true;
+          cameraVideo.playsInline = true;
+          cameraVideo.srcObject = cameraStream;
+          cameraVideo.hidden = false;
+          cameraPlaceholder.hidden = true;
+          startCameraButton.disabled = true;
+          stopCameraButton.disabled = false;
+          await waitForVideoReady();
+          await cameraVideo.play();
+          setStatus(scanStatus, 'Point your camera at a QR code.', '');
+          scanFrame = requestAnimationFrame(scanCameraFrame);
+        } catch (error) {
+          stopCamera();
+          setStatus(scanStatus, 'Camera could not be displayed. Check browser permission, then try again or upload an image.', 'error');
+        }
+      }
+
+      function stopCamera() {
+        if (scanFrame) cancelAnimationFrame(scanFrame);
+        scanFrame = null;
+        if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+        cameraVideo.pause();
+        cameraVideo.srcObject = null;
+        cameraVideo.hidden = true;
+        cameraPlaceholder.hidden = false;
+        startCameraButton.disabled = false;
+        stopCameraButton.disabled = true;
+      }
+
+      document.getElementById('generateButton').addEventListener('click', generateQr);
+      qrText.addEventListener('input', updateCount);
+      qrText.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') generateQr();
+      });
+      qrSize.addEventListener('change', generateQr);
+      qrCorrection.addEventListener('change', generateQr);
+      copyButton.addEventListener('click', () => copyText(qrText.value.trim(), generateStatus, 'Content copied to clipboard.'));
+      downloadButton.addEventListener('click', downloadQr);
+      imageInput.addEventListener('change', () => {
+        const file = imageInput.files[0];
+        if (!file) return;
+        const image = new Image();
+        image.onload = () => {
+          decodeImage(image);
+          URL.revokeObjectURL(image.src);
+        };
+        image.onerror = () => setStatus(scanStatus, 'That file could not be read as an image.', 'error');
+        image.src = URL.createObjectURL(file);
+      });
+      startCameraButton.addEventListener('click', startCamera);
+      stopCameraButton.addEventListener('click', () => {
+        stopCamera();
+        setStatus(scanStatus, 'Camera stopped.', '');
+      });
+      copyResultButton.addEventListener('click', () => copyText(scanResult.textContent, scanStatus, 'Result copied to clipboard.'));
+      window.addEventListener('beforeunload', stopCamera);
+      updateCount();
+    })();
+  </script>
+</body>
+</html>
