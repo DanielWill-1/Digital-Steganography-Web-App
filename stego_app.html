@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invisible Image "QR" Encoder & Scanner</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 30px auto; line-height: 1.5; }
+    .box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 24px; }
+    canvas { display: none; }
+    img { max-width: 100%; height: auto; margin-top: 10px; border: 1px solid #eee; }
+    button { cursor: pointer; padding: 8px 16px; margin-top: 10px; }
+    input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+
+  <h2>Invisible "QR" Encoder & Reader</h2>
+  <canvas id="canvas"></canvas>
+
+  <!-- ENCODER SECTION -->
+  <div class="box">
+    <h3>1. Encode URL/Text into Image</h3>
+    <input type="file" id="uploadInput" accept="image/*"><br><br>
+    <label>Message or Link to Hide:</label>
+    <input type="text" id="secretText" placeholder="https://example.com"><br>
+    <button onclick="encodeMessage()">Encode & Download Image</button>
+    <div id="outputPreview"></div>
+  </div>
+
+  <!-- DECODER SECTION -->
+  <div class="box">
+    <h3>2. "Scan" / Decode Image</h3>
+    <p>Upload any encoded image to extract the hidden payload:</p>
+    <input type="file" id="decodeInput" accept="image/*">
+    <button onclick="decodeMessage()">Read Hidden Data</button>
+    <h4 id="decodedResult" style="color: green; margin-top: 15px;"></h4>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const DELIMITER = "###END###"; // Marks where the message stops
+
+    // Helper: Convert string to binary array of bits (0 and 1)
+    function textToBits(str) {
+      let bits = [];
+      for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        for (let b = 7; b >= 0; b--) {
+          bits.push((code >> b) & 1);
+        }
+      }
+      return bits;
+    }
+
+    // Helper: Convert array of bits back into a string
+    function bitsToText(bits) {
+      let chars = [];
+      for (let i = 0; i < bits.length; i += 8) {
+        let byte = 0;
+        for (let b = 0; b < 8; b++) {
+          byte = (byte << 1) | bits[i + b];
+        }
+        chars.push(String.fromCharCode(byte));
+      }
+      return chars.join('');
+    }
+
+    // 1. ENCODE
+    function encodeMessage() {
+      const fileInput = document.getElementById('uploadInput');
+      const text = document.getElementById('secretText').value;
+
+      if (!fileInput.files[0] || !text) {
+        alert("Please choose an image and enter some text.");
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data; // [R, G, B, A, R, G, B, A, ...]
+        const fullPayload = text + DELIMITER;
+        const bits = textToBits(fullPayload);
+
+        // Check if the image has enough pixels
+        // (each pixel has 3 usable color channels: R, G, B)
+        if (bits.length > (data.length / 4) * 3) {
+          alert("Image is too small to hold this much text.");
+          return;
+        }
+
+        let bitIndex = 0;
+        for (let i = 0; i < data.length && bitIndex < bits.length; i++) {
+          // Skip Alpha channel (every 4th byte)
+          if ((i + 1) % 4 === 0) continue;
+
+          // Replace the lowest bit of the color with our data bit
+          // e.g., if color is 254 (11111110) and bit is 1 -> 255 (11111111)
+          data[i] = (data[i] & ~1) | bits[bitIndex];
+          bitIndex++;
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+
+        // Export as PNG (JPEG will compress and destroy the hidden bits)
+        const pngUrl = canvas.toDataURL("image/png");
+        const downloadLink = document.createElement('a');
+        downloadLink.href = pngUrl;
+        downloadLink.download = "encoded_image.png";
+        downloadLink.innerText = "Click here to download your encoded image";
+        
+        const preview = document.getElementById('outputPreview');
+        preview.innerHTML = "";
+        preview.appendChild(downloadLink);
+      };
+
+      img.src = URL.createObjectURL(fileInput.files[0]);
+    }
+
+    // 2. DECODE
+    function decodeMessage() {
+      const fileInput = document.getElementById('decodeInput');
+      if (!fileInput.files[0]) {
+        alert("Please choose an image to decode.");
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        let bits = [];
+        let decodedText = "";
+
+        for (let i = 0; i < data.length; i++) {
+          if ((i + 1) % 4 === 0) continue; // Skip Alpha
+
+          // Read the lowest bit
+          bits.push(data[i] & 1);
+
+          // Every 8 bits, evaluate the character
+          if (bits.length % 8 === 0) {
+            let lastChar = String.fromCharCode(
+              bits.slice(-8).reduce((acc, bit) => (acc << 1) | bit, 0)
+            );
+            decodedText += lastChar;
+
+            // Check if we hit the delimiter
+            if (decodedText.endsWith(DELIMITER)) {
+              const cleanMessage = decodedText.replace(DELIMITER, '');
+              document.getElementById('decodedResult').innerText = "Found Hidden Data: " + cleanMessage;
+              return;
+            }
+          }
+        }
+
+        document.getElementById('decodedResult').innerText = "No hidden data found.";
+      };
+
+      img.src = URL.createObjectURL(fileInput.files[0]);
+    }
+  </script>
+</body>
+</html>
