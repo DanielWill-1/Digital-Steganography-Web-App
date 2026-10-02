@@ -1,0 +1,12 @@
+{
+  "name": "stegocode-route-a-a4",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Experiment A4 — multi-target generalization, cross-environment hardening, physical validation tooling, final Route A analysis. Test-only config: declares ES modules for Node. No runtime dependencies.",
+  "scripts": {
+    "test": "node tests/run-tests.js",
+    "run:generalization": "node tests/run-generalization.js",
+    "verify:dataset": "node tests/verify-dataset.js"
+  }
+}

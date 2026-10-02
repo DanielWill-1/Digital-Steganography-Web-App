@@ -1,0 +1,71 @@
+{
+  "configurations": 96,
+  "a3_clean_max_exact_count": 96,
+  "a3_robust_exact_count": 94,
+  "robust_criterion": "both_exact_rate >= 0.95 x A1 baseline both_exact_rate",
+  "a2_vs_a3_clean": {
+    "a3_outperformed": 94,
+    "a3_tied": 2,
+    "a3_underperformed": 0,
+    "note": "outperform = A3 both-exact while A2 matched-budget both-exact rate == 0"
+  },
+  "a3_clean_max_gain": {
+    "count": 96,
+    "mean": 0.059521875,
+    "median": 0.054400000000000004,
+    "min": 0.009099999999999997,
+    "max": 0.0907
+  },
+  "median_clean_gain_by_ecc": {
+    "L": 0.0363,
+    "M": 0.054400000000000004,
+    "Q": 0.07249999999999998,
+    "H": 0.0907
+  },
+  "median_clean_gain_by_payload": {
+    "a": 0.054400000000000004,
+    "abcdefg": 0.054400000000000004,
+    "g.co": 0.054400000000000004
+  },
+  "median_clean_gain_by_target_category": {
+    "asymmetrical": 0.054400000000000004,
+    "dense": 0.054400000000000004,
+    "geometric": 0.05445,
+    "letter-like": 0.05449999999999999,
+    "simple": 0.06344999999999998,
+    "sparse": 0.06345
+  },
+  "correlations": {
+    "eligible_mismatches": {
+      "n": 96,
+      "pearson_vs_clean_gain": 0.043657967913763036,
+      "spearman_vs_clean_gain": 0.01970971242539338
+    },
+    "fixed_conflicts": {
+      "n": 96,
+      "pearson_vs_clean_gain": 0.013607000804429793,
+      "spearman_vs_clean_gain": -0.05789473684210526
+    },
+    "theoretical_ceiling": {
+      "n": 96,
+      "pearson_vs_clean_gain": -0.013608826050645234,
+      "spearman_vs_clean_gain": 0.042173087357569174
+    },
+    "top4_mismatch_fraction": {
+      "n": 96,
+      "pearson_vs_clean_gain": 0.14754956868416044,
+      "spearman_vs_clean_gain": 0.10283505154639175
+    }
+  },
+  "first_generalization_failure": null,
+  "a3_clean_max_budget": {
+    "min": 4,
+    "median": 24.0,
+    "max": 40
+  },
+  "a3_robust_budget": {
+    "min": 16,
+    "median": 24.0,
+    "max": 40
+  }
+}

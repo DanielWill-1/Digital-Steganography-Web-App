@@ -1,6 +1,9 @@
 # Route A — Standards-Compatible Artistic QR
 
-**Status: active route. Next experiment: `A1` — planned, not yet implemented.**
+**Status: active route (`A1`–`A4`). `A1`–`A3` are COMPLETE and frozen. `A4` is software
+implemented — its foundation audit, 96-configuration generalization, and physical-testing
+tooling are done — but physical validation is PENDING real data, so Route A is NOT YET
+COMPLETE.**
 
 ---
 
@@ -20,84 +23,77 @@ Full specification: [`../../docs/ROUTE_A_ARTISTIC_QR.md`](../../docs/ROUTE_A_ART
 ## Current status
 
 ```text
-A0 — Freeze and validate the current Version 1 encoder       REQUIRED, NOT COMPLETED
-A1 — Mask/ECC visual-similarity baseline                     PLANNED, NOT IMPLEMENTED
-A2 — Controlled target-directed module modification          PLANNED
-A3 — Codeword-aware optimization                             PLANNED
-A4 — Synthetic robustness testing                            PLANNED
-A5 — Physical camera testing                                 PLANNED
-A6 — Logo-aware optimization algorithm                       PLANNED
-A7 — Multi-logo evaluation                                   PLANNED
-A8 — Comparison with existing artistic QR approaches         PLANNED
+A1 — baseline ECC/mask visual study                     COMPLETE (control) — jsQR + OpenCV 32/32
+A2 — controlled random target-directed modification      COMPLETE (frozen) — jsQR + OpenCV 33/85
+A3 — codeword-aware optimization + synthetic robustness  COMPLETE (frozen) — clean 76/150 (both)
+A4 — generalization + physical validation + analysis     SOFTWARE IMPLEMENTED — physical data PENDING
 ```
 
-Nothing in this route has been implemented. This directory contains a README and an empty
-`results/` placeholder. There is no `A1/` directory.
-
-A partial, out-of-repository verification of the baseline encoder was performed during the
-documentation pass — module role counts, generator roots, RS syndromes, all 32 format
-codewords, all 32 ECC × mask matrices, capacity limits, and mask selection. That harness was
-deliberately not committed, and it is **not** `A0`: `A0` requires a repeatable, in-project
-procedure with recorded output and independent decoder confirmation.
+The roadmap is compressed; `A0` is historical baseline validation, not a separate active
+experiment. `A1` lives in [`A1/`](A1/README.md), `A2` in [`A2/`](A2/README.md), `A3` in
+[`A3/`](A3/README.md), and `A4` in [`A4/`](A4/README.md). A1 modifies nothing; A2 modifies
+mutable mismatches with a deterministic seeded order; A3 packs the same number of mismatches
+into far fewer codewords; A4 generalizes and audits rather than adding an optimizer.
 
 ---
 
-## Planned experiments
+## Experiments
 
-### A0 — Freeze and validate the current Version 1 encoder
+### A1 — Mask/ECC visual-similarity baseline — COMPLETE
 
-Establish a trustworthy baseline before any artistic modification. Verify matrix
-dimensions, payload encoding, ECC generation, mask generation, format information, capacity
-enforcement, and independent decoding. No optimisation.
-
-### A1 — Mask/ECC visual-similarity baseline
-
-**The next implementation milestone.**
+Full record: [`A1/README.md`](A1/README.md).
 
 > Given the same Version 1 payload and a target logo, how much visual similarity can be
 > obtained using only valid QR error-correction levels and mask choices, without changing
 > any encoded module?
 
 Fixed payload `g.co` (4 UTF-8 bytes, fits all four ECC levels), four ECC levels × eight
-masks = 32 candidates. Record similarity metrics, per-rule QR penalties, and independent
-decoder results for each.
+masks = 32 candidates, each with similarity metrics, per-rule QR penalties, and independent
+decoder results. Default run (synthetic circle): 32/32 generated, jsQR 32/32 exact, OpenCV
+32/32 exact; highest full similarity 49.43% (H/mask 6); lowest corrected QR penalty 287
+(Q/mask 0).
 
-### A2 — Controlled target-directed module modification
+### A2 — Controlled target-directed module modification — IMPLEMENTED
 
-Locate the visual/readability boundary empirically by changing non-structural modules
-toward the target and measuring where decoding begins to fail.
+Full record: [`A2/README.md`](A2/README.md).
 
-### A3 — Codeword-aware optimization
+> How much can selected non-function modules of a valid Version 1 QR symbol be changed
+> toward a target logo before reliable decoding begins to fail?
 
-Track affected Reed–Solomon codewords, not just flipped modules. Flipping two modules
-inside one codeword costs one codeword of error budget; two modules in two codewords costs
-two.
+Starts from an A1 base candidate, collects eligible mutable mismatches, orders them with
+fixed seeds (42–46), and applies a dense budget schedule (0…128, filtered against the
+eligible count). Function modules are never touched; every change moves a module toward the
+target. Codeword damage is recorded but not used to choose positions. Default run: base
+A1-H-M6, 93 eligible mismatches, 17 budgets × 5 seeds = 85 trials; jsQR and OpenCV both
+33/85 exact; first observed failure at budget 10, sustained failure from budget 16.
 
-### A4 — Synthetic robustness testing
+### A3 — Codeword-aware optimization + synthetic robustness — IMPLEMENTED
 
-Scaling, rotation, blur, noise, contrast, brightness, JPEG compression, perspective,
-obstruction, uneven illumination. Report decode rates, with exact transformation
-parameters.
+Full record: [`A3/README.md`](A3/README.md).
 
-### A5 — Physical camera testing
+> Can we obtain the same or greater target-logo similarity as A2 while preserving
+> significantly better decoding reliability by concentrating target-directed changes into
+> fewer QR/Reed–Solomon codeword symbols?
 
-Screens, prints, camera capture, angles, distances, lighting, devices. Results kept strictly
-separate from `A4`'s digital results.
+Under the binary target metric, a fixed module budget fixes the visual gain, so A3 minimises
+**distinct affected codewords** instead. Two deterministic strategies: packed module-budget
+(greedy densest-codeword packing with a penalty-minimising partial final codeword) and
+codeword-budget (K densest codewords). Compared against A2 at matched budgets, then run
+through a five-family synthetic degradation suite. Default run: A2 needs ~21 codewords to
+reach 58.50% similarity (0/5 exact); A3 reaches it with 7 codewords and decodes exactly under
+both jsQR and OpenCV. Codewords are recorded for A3 but never with decoder feedback.
 
-### A6 — Logo-aware optimization algorithm
+### A4 — Multi-target generalization + physical validation + final analysis — SOFTWARE IMPLEMENTED
 
-Only after `A1`–`A5` establish measurable behaviour. Deterministic first; no ML before the
-baselines exist.
+Full record: [`A4/README.md`](A4/README.md); audit [`A4/BUG_AUDIT.md`](A4/BUG_AUDIT.md);
+cross-environment [`A4/CROSS_ENVIRONMENT_NOTES.md`](A4/CROSS_ENVIRONMENT_NOTES.md).
 
-### A7 — Multi-logo evaluation
-
-Test logo classes — letters, geometric, circular, sparse, dense, monochrome, multicolour
-after binary normalisation — and determine which are fundamentally more compatible with QR
-geometry.
-
-### A8 — Comparison with existing artistic QR approaches
-
-Requires a literature review. No novelty is claimed before it.
+A4.0 audits the foundations (found and fixed the Rule-3 penalty bug), A4.1 runs a 96-configuration
+generalization (8 synthetic targets × 3 payloads × 4 ECC) in which A3 reaches a both-decoder-exact
+operating point in 96/96 configurations and outperforms A2 at 94/96 matched budgets (median
+similarity gain ≈5.4pp; H 9.1 > Q 7.3 > M 5.4 > L 3.6), A4.2 provides screen/print/recorder
+tooling and a protocol, and A4.3 generates the final tables. **Physical data is PENDING and not
+fabricated; Route A is not yet complete.**
 
 ---
 
@@ -116,6 +112,12 @@ In summary, all with explicit denominators:
 Plus, per candidate: the four QR penalty rules reported separately, their total, whether the
 standard algorithm would have selected that mask, and decoder results from `jsQR` and an
 independent decoder.
+
+A2 additionally records, per trial: `actual_modified_modules`,
+`modified_fraction_of_eligible`, `similarity_before/after/gain`,
+`mutable_similarity_before/after/gain`, the four `modified_penalty_*` rules,
+`affected_codeword_count` and `max_flips_in_single_codeword`, and a `decode_status` of
+`EXACT` / `WRONG_PAYLOAD` / `NO_DETECTION` / `DECODER_ERROR`.
 
 The Version 1 module role counts these metrics depend on:
 
@@ -138,14 +140,14 @@ TOTAL                441
 - Only 208 modules are candidates for modification, constrained by the error-correction
   budget.
 - Digital decodability is not camera decodability, and must never be reported as such.
-- The baseline encoder's mask penalty rule 3 is an approximation of the specification's
-  1:1:3:1:1 rule, so per-rule penalties are not directly comparable against another
-  implementation's.
+- The baseline encoder's mask penalty rule 3 was dead code before A4.0 (a boolean compared
+  with `=== 0`) and is now fixed; see
+  [`A4/BUG_AUDIT.md`](A4/BUG_AUDIT.md). Per-rule penalties were regenerated for A1/A2/A3.
 - The baseline's `qrMatrix()` does not expose the selected mask or the penalty breakdown;
-  `A1` will need to expose or re-derive them.
+  A1's encoder port exposes both (and reproduces the documented penalty values).
 - The matrix returned by the encoder has no quiet zone; four modules of margin must be
   added to any candidate image before it will scan.
-- No novelty claim is available until `A8`.
+- No novelty claim is available before the A4 literature comparison.
 
 ---
 
@@ -154,11 +156,17 @@ TOTAL                441
 | Dependency | Status | Needed for |
 | :--- | :--- | :--- |
 | In-repo Version 1 encoder (`qr_app copy.html`) | Exists | All experiments — the baseline |
-| `jsQR` 1.4.0 | Exists (CDN) | Browser decoder |
-| OpenCV `QRCodeDetector` | **Does not exist** | Required independent decoder from `A1` onward |
-| Target images | **Does not exist** | `A1` |
-| Target normalisation to 21 × 21 | **Does not exist** | `A1` |
-| QR module role map | **Does not exist** | `A1` and all later experiments |
+| `jsQR` 1.4.0 | Exists (CDN) | Browser decoder; A1 and A2 |
+| OpenCV `QRCodeDetector` | Exists in the environment (4.12.0) | Independent decoder; A1 and A2 `validate_opencv.py` |
+| Target images | Built-in synthetic targets; uploads supported | A1 and A2 |
+| Target normalisation to 21 × 21 | Implemented in A1 (`js/target-grid.js`) | A1, A2, and later |
+| QR module role map | Implemented in A1 (`js/qr-role-map.js`) | A1, A2, and later |
+| Seeded modification strategy | Implemented in A2 (`js/modification-strategy.js`) | A2, and A3's baseline |
+| Codeword-aware optimizer | Implemented in A3 (`js/codeword-optimizer.js`) | A3 |
+| Synthetic transform suite | Implemented in A3 (`validation/synthetic_robustness.py`) | A3, A4 |
+| Benchmark target corpus | Implemented in A4 (`js/target-corpus.js`) | A4 |
+| Physical-testing tooling | Implemented in A4 (`physical/*.html`, `validation/physical_analysis.py`) | A4 (data pending) |
+| jsQR (pinned) | Vendored in `third_party/jsQR/` (1.4.0) | A4 and later; offline support |
 
 No dependency may be added without a documented reason and a recorded version.
 
@@ -167,7 +175,9 @@ No dependency may be added without a documented reason and a recorded version.
 ## Relationship with the current implementation
 
 - The baseline is `qr_app copy.html`, which contains the in-repo Version 1 encoder.
-- `A0` validates that encoder; `A1` uses it **unchanged** to generate all 32 candidates.
+- `A1` uses that encoder via a faithful port (the application is not modified) to generate
+  all 32 candidates; `A2` reuses A1's base candidates, role map, metrics, and rasteriser; `A3`
+  reuses both and adds only the codeword-aware optimizer and robustness evaluation.
 - No experiment modifies `qr_app copy.html`. Experiments live here, under
   `experiments/route-a/`.
 - `qr_app.html` (the `qrcodejs` page) is not part of this route. It cannot serve as a

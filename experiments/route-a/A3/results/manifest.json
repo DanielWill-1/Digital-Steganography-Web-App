@@ -1,0 +1,124 @@
+{
+  "experiment": "A3",
+  "route": "A",
+  "experiment_name": "Codeword-Aware Logo Optimization + Synthetic Robustness",
+  "experiment_id": "A3",
+  "date": "2026-10-02",
+  "timestamp": "2026-10-02T19:49:30.567Z",
+  "run_id": "A3-20261002-1",
+  "repository_commit": "f61e11f",
+  "research_question": "Can the same or greater target-logo similarity as A2 be obtained while preserving better decoding reliability by concentrating target-directed changes into fewer QR codewords, and does any advantage survive controlled synthetic degradation?",
+  "payload": "g.co",
+  "payload_utf8_bytes": 4,
+  "target": {
+    "filename": "synthetic-circle",
+    "normalization": {
+      "size": 21,
+      "fit_method": "center-crop to square",
+      "grayscale_method": "Rec. 601 luma: (299R + 587G + 114B) / 1000",
+      "downsample_method": "box average",
+      "threshold": 128,
+      "threshold_method": "luma < 128 → dark (1), luma >= 128 → light (0)",
+      "matrix_convention": "1 = target dark module, 0 = target light module",
+      "source": "synthetic",
+      "synthetic_target": "circle"
+    }
+  },
+  "base_selection_mode": "auto",
+  "bases": [
+    {
+      "candidate_id": "A1-H-M6",
+      "ecc": "H",
+      "mask": 6,
+      "full_similarity": 0.4943,
+      "eligible_count": 93,
+      "budgets": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        20,
+        24,
+        32,
+        40,
+        48,
+        64,
+        80,
+        93
+      ]
+    }
+  ],
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "budgets": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64,
+    80,
+    93
+  ],
+  "environment": {
+    "userAgent": null,
+    "jsqrVersion": "1.4.0",
+    "runner": "node tests/run-default-experiment.js",
+    "node": "v22.12.0",
+    "decoders": [
+      {
+        "name": "jsQR",
+        "version": "1.4.0",
+        "role": "browser decoder"
+      },
+      {
+        "name": "OpenCV QRCodeDetector",
+        "version": "see validation/validate_opencv.py",
+        "role": "independent decoder"
+      }
+    ]
+  },
+  "success_definition": "decoded payload === expected payload",
+  "render": {
+    "module_scale": 12,
+    "quiet_zone_modules": 4,
+    "color": "black/white only, lossless PNG"
+  },
+  "notes": "",
+  "transform_manifest": null
+}

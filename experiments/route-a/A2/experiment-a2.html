@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A2 — Controlled Target-Directed QR Modification</title>
+<style>
+  :root {
+    --bg: #f6f8fa; --panel: #ffffff; --panel-2: #f2f5f9; --border: #d0d7de; --border-strong: #afb8c1;
+    --text: #1f2328; --muted: #59636e; --accent: #0969da; --accent-ink: #ffffff;
+    --good: #1a7f37; --bad: #cf222e; --warn: #9a6700; --shadow: 0 1px 2px rgba(31, 35, 40, 0.06);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  header { background: var(--panel); border-bottom: 1px solid var(--border); }
+  header .inner, main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  h3 { font-size: 12px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  p { margin: 0 0 10px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin-top: 14px; }
+  .meta-grid div { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  .meta-grid span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-top: 16px; box-shadow: var(--shadow); }
+  .row { display: flex; flex-wrap: wrap; gap: 20px; }
+  .col { flex: 1 1 320px; min-width: 280px; }
+  label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  textarea, input[type="text"], select { width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  textarea { resize: vertical; min-height: 58px; }
+  textarea:focus, select:focus, input:focus { outline: 2px solid rgba(9, 105, 218, 0.35); outline-offset: 1px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .error { color: var(--bad); } .success { color: var(--good); font-weight: 600; }
+  button { background: var(--accent); color: var(--accent-ink); border: 1px solid transparent; border-radius: 8px;
+    padding: 9px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:hover:not(:disabled) { filter: brightness(0.95); }
+  button.secondary { background: var(--panel); color: var(--text); border-color: var(--border-strong); font-weight: 500; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  .target-preview { background: #fff; border: 1px solid var(--border); border-radius: 6px; width: 210px; height: 210px; image-rendering: pixelated; }
+  .source-preview { max-width: 210px; max-height: 210px; background: #fff; border: 1px solid var(--border); border-radius: 6px; }
+  .preview-row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .preview-row figure { margin: 0; } figcaption { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 10px; }
+  .summary-grid div { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+  .summary-grid span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .charts figure { margin: 0; } .charts canvas { width: 100%; height: auto; background: #fff; border: 1px solid var(--border); border-radius: 8px; }
+  .thumb { background: #fff; border: 1px solid var(--border); border-radius: 6px; width: 160px; height: 160px; image-rendering: pixelated; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border: 1px solid var(--border-strong); margin-right: 4px; vertical-align: middle; }
+  .inspector-controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+  .inspector-controls > div { min-width: 120px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 12px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--muted); }
+  .badge.good { color: var(--good); border-color: var(--good); background: rgba(26,127,55,0.08); }
+  .badge.bad { color: var(--bad); border-color: var(--bad); background: rgba(207,34,46,0.08); }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 26px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <h1>A2 — Controlled Target-Directed QR Modification</h1>
+    <p class="hint" style="margin:0">Deliberately move mutable QR modules toward the target and measure where
+    decoding fails. Not an optimiser — seeded, deterministic modification used to find the damage curve.</p>
+    <div class="meta-grid">
+      <div><span>Route</span>A</div>
+      <div><span>Experiment</span>A2</div>
+      <div><span>Name</span>Controlled Target-Directed QR Modification</div>
+      <div><span>QR version</span>1 (21 × 21)</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>1. Payload</h2>
+    <label for="payload">Payload (UTF-8, byte mode)</label>
+    <textarea id="payload" spellcheck="false">g.co</textarea>
+    <div class="hint" id="payloadInfo">UTF-8 bytes: 4</div>
+  </section>
+
+  <section class="panel">
+    <h2>2. Target</h2>
+    <div class="row">
+      <div class="col">
+        <label for="targetSource">Target source</label>
+        <select id="targetSource"></select>
+        <input id="targetFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <p class="hint">Same deterministic normalisation as A1, so A1 and A2 compare against identical targets.</p>
+        <p class="hint" id="normalizationInfo"></p>
+        <p class="hint error" id="targetError"></p>
+      </div>
+      <div class="col">
+        <div class="preview-row">
+          <figure id="sourceFigure" hidden>
+            <img id="sourcePreview" class="source-preview" alt="Uploaded target source">
+            <figcaption>Uploaded source (as loaded)</figcaption>
+          </figure>
+          <figure>
+            <canvas id="targetPreview" class="target-preview" width="210" height="210"></canvas>
+            <figcaption>Normalised 21 × 21 target (dark = module 1)</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Base QR selection</h2>
+    <div class="row">
+      <div class="col">
+        <label for="baseMode">Base selection</label>
+        <select id="baseMode">
+          <option value="auto">Automatic — highest A1 full similarity</option>
+          <option value="manual">Manual ECC / mask</option>
+        </select>
+        <div id="manualBase" hidden style="margin-top:10px">
+          <div class="row">
+            <div class="col"><label for="manualEcc">ECC level</label><select id="manualEcc"></select></div>
+            <div class="col"><label for="manualMask">Mask</label><select id="manualMask"></select></div>
+          </div>
+        </div>
+        <label style="margin-top:12px"><input type="checkbox" id="allEcc"> Also run the best candidate within each ECC level (4 bases)</label>
+        <p class="hint">Auto mode derives the base from the current target — it never hardcodes the A1 winner of a previous run.</p>
+      </div>
+      <div class="col">
+        <p class="hint" id="basePreviewInfo">Run to see the selected base.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>4. Trials and budgets</h2>
+    <div class="row">
+      <div class="col">
+        <h3>Seeds</h3>
+        <p class="hint" id="seedsInfo">42, 43, 44, 45, 46</p>
+      </div>
+      <div class="col">
+        <h3>Modification budgets</h3>
+        <p class="hint" id="budgetsInfo">Computed after the base is known (filtered against the eligible mismatch count).</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="runButton">Run A2 Experiment</button>
+      <button id="exportJson" class="secondary" disabled>Export manifest.json</button>
+      <button id="exportCsv" class="secondary" disabled>Export results.csv</button>
+      <button id="exportSummary" class="secondary" disabled>Export budget_summary.csv</button>
+    </div>
+    <p class="hint" id="runStatus"></p>
+  </section>
+
+  <section class="panel" id="summaryPanel" hidden>
+    <h2>5. Results summary</h2>
+    <div class="summary-grid" id="summaryGrid"></div>
+  </section>
+
+  <section class="panel" id="budgetPanel" hidden>
+    <h2>6. Decode success by budget</h2>
+    <table id="budgetTable"></table>
+    <p class="hint" id="failureInfo"></p>
+  </section>
+
+  <section class="panel" id="chartPanel" hidden>
+    <h2>7. Charts</h2>
+    <div class="charts">
+      <figure>
+        <canvas id="chartSuccess" width="640" height="360"></canvas>
+        <figcaption>Decode success rate vs modified module count</figcaption>
+      </figure>
+      <figure>
+        <canvas id="chartSimilarity" width="640" height="360"></canvas>
+        <figcaption>Visual similarity vs modified module count</figcaption>
+      </figure>
+      <figure>
+        <canvas id="chartTradeoff" width="640" height="360"></canvas>
+        <figcaption>Visual similarity vs decode success</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="panel" id="inspectorPanel" hidden>
+    <h2>8. Trial inspector</h2>
+    <div class="inspector-controls">
+      <div id="basePickWrap" hidden>
+        <label for="inspBaseSelect">Base</label>
+        <select id="inspBaseSelect"></select>
+      </div>
+      <div><label for="inspSeed">Seed</label><select id="inspSeed"></select></div>
+      <div><label for="inspBudget">Budget</label><select id="inspBudget"></select></div>
+      <div><button id="downloadTrial" class="secondary">Download PNG</button></div>
+    </div>
+    <div class="preview-row">
+      <figure><canvas class="thumb" id="inspBase" width="160" height="160"></canvas><figcaption>A1 base QR</figcaption></figure>
+      <figure><canvas class="thumb" id="inspModified" width="160" height="160"></canvas><figcaption>A2 modified QR</figcaption></figure>
+      <figure><canvas class="thumb" id="inspTarget" width="160" height="160"></canvas><figcaption>21 × 21 target</figcaption></figure>
+      <figure><canvas class="thumb" id="inspDiff" width="160" height="160"></canvas><figcaption>difference map (debug only)</figcaption></figure>
+    </div>
+    <div class="legend">
+      <span><i style="background:#1a7f37"></i>modified toward target</span>
+      <span><i style="background:#cf222e"></i>remaining mismatch</span>
+      <span><i style="background:#ffffff"></i>already matching (mutable)</span>
+      <span><i style="background:#d0d7de"></i>immutable structure</span>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div class="col"><div class="kv" id="inspMeta"></div></div>
+    </div>
+    <p class="hint">The highlight is a separate debug view; the QR submitted to the decoder is always plain black/white.</p>
+  </section>
+</main>
+
+<footer>
+  Works directly from the filesystem as well as over a local server. Uses jsQR 1.4.0 (CDN)
+  for the in-page decode; OpenCV validation is a separate local script. Nothing is uploaded.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="../A1/js/qr-role-map.js"></script>
+<script src="../A1/js/qr-experiment.js"></script>
+<script src="../A1/js/metrics.js"></script>
+<script src="../A1/js/target-grid.js"></script>
+<script src="../A1/js/export-results.js"></script>
+<script src="../A1/js/experiment-runner.js"></script>
+<script src="./js/modification-strategy.js"></script>
+<script src="./js/metrics-a2.js"></script>
+<script src="./js/robustness-summary.js"></script>
+<script src="./js/experiment-runner.js"></script>
+<script src="./js/export-results.js"></script>
+<script>
+(function () {
+  const A1 = globalThis.StegoA1;
+  const A2 = globalThis.StegoA2;
+  const els = {
+    payload: document.getElementById('payload'),
+    payloadInfo: document.getElementById('payloadInfo'),
+    targetSource: document.getElementById('targetSource'),
+    targetFile: document.getElementById('targetFile'),
+    targetError: document.getElementById('targetError'),
+    normalizationInfo: document.getElementById('normalizationInfo'),
+    sourceFigure: document.getElementById('sourceFigure'),
+    sourcePreview: document.getElementById('sourcePreview'),
+    targetPreview: document.getElementById('targetPreview'),
+    baseMode: document.getElementById('baseMode'),
+    manualBase: document.getElementById('manualBase'),
+    manualEcc: document.getElementById('manualEcc'),
+    manualMask: document.getElementById('manualMask'),
+    allEcc: document.getElementById('allEcc'),
+    basePreviewInfo: document.getElementById('basePreviewInfo'),
+    seedsInfo: document.getElementById('seedsInfo'),
+    budgetsInfo: document.getElementById('budgetsInfo'),
+    runButton: document.getElementById('runButton'),
+    runStatus: document.getElementById('runStatus'),
+    exportJson: document.getElementById('exportJson'),
+    exportCsv: document.getElementById('exportCsv'),
+    exportSummary: document.getElementById('exportSummary'),
+    summaryPanel: document.getElementById('summaryPanel'),
+    summaryGrid: document.getElementById('summaryGrid'),
+    budgetPanel: document.getElementById('budgetPanel'),
+    budgetTable: document.getElementById('budgetTable'),
+    failureInfo: document.getElementById('failureInfo'),
+    chartPanel: document.getElementById('chartPanel'),
+    chartSuccess: document.getElementById('chartSuccess'),
+    chartSimilarity: document.getElementById('chartSimilarity'),
+    chartTradeoff: document.getElementById('chartTradeoff'),
+    inspectorPanel: document.getElementById('inspectorPanel'),
+    basePickWrap: document.getElementById('basePickWrap'),
+    inspBaseSelect: document.getElementById('inspBaseSelect'),
+    inspSeed: document.getElementById('inspSeed'),
+    inspBudget: document.getElementById('inspBudget'),
+    downloadTrial: document.getElementById('downloadTrial'),
+    inspBaseCanvas: document.getElementById('inspBase'),
+    inspModifiedCanvas: document.getElementById('inspModified'),
+    inspTargetCanvas: document.getElementById('inspTarget'),
+    inspDiffCanvas: document.getElementById('inspDiff'),
+    inspMeta: document.getElementById('inspMeta'),
+  };
+
+  let targetMatrix = null;
+  let targetMeta = null;
+  let lastRun = null;
+
+  function setStatus(message, type) {
+    els.runStatus.textContent = message;
+    els.runStatus.className = 'hint' + (type ? ' ' + type : '');
+  }
+
+  function matrixToCanvas(canvas, boolMatrix) {
+    const image = A1.renderMatrixToImageData({ matrix: boolMatrix, moduleScale: 8, quietZone: 0 });
+    canvas.width = image.width;
+    canvas.height = image.height;
+    canvas.getContext('2d').putImageData(new ImageData(image.data, image.width, image.height), 0, 0);
+  }
+
+  function updatePayload() {
+    els.payloadInfo.textContent = 'UTF-8 bytes: ' + A1.utf8ByteLength(els.payload.value);
+  }
+
+  function setTargetFromSource() {
+    els.targetError.textContent = '';
+    const source = els.targetSource.value;
+    if (source === 'upload') { els.targetFile.click(); return; }
+    targetMatrix = A1.syntheticTarget(source);
+    targetMeta = Object.assign({}, A1.normalizationMetadata(21), { source: 'synthetic', synthetic_target: source });
+    els.sourceFigure.hidden = true;
+    matrixToCanvas(els.targetPreview, targetMatrix.map((row) => row.map((v) => v === 1)));
+    showNormalizationInfo();
+  }
+
+  function handleFile(file) {
+    els.targetError.textContent = '';
+    if (!file) return;
+    A1.loadImageFileToImageData(file).then((imageData) => {
+      targetMatrix = A1.imageDataToTargetMatrix(imageData, { size: 21 });
+      targetMeta = Object.assign({}, A1.normalizationMetadata(21), {
+        source: 'upload', source_file: file.name, source_width: imageData.width, source_height: imageData.height,
+      });
+      els.sourcePreview.src = URL.createObjectURL(file);
+      els.sourceFigure.hidden = false;
+      matrixToCanvas(els.targetPreview, targetMatrix.map((row) => row.map((v) => v === 1)));
+      showNormalizationInfo();
+    }).catch((error) => {
+      targetMatrix = null;
+      els.targetError.textContent = error.message;
+      els.sourceFigure.hidden = true;
+    });
+  }
+
+  function showNormalizationInfo() {
+    if (!targetMeta) { els.normalizationInfo.textContent = ''; return; }
+    els.normalizationInfo.textContent =
+      'Fit: ' + targetMeta.fit_method + '. Grayscale: ' + targetMeta.grayscale_method +
+      '. Downsample: ' + targetMeta.downsample_method + '. Threshold: ' + targetMeta.threshold_method + '.';
+  }
+
+  function run() {
+    els.targetError.textContent = '';
+    const payload = els.payload.value;
+    if (!payload) { setStatus('Enter a payload first.', 'error'); return; }
+    if (!targetMatrix) { els.targetError.textContent = 'A target image is required.'; return; }
+    if (!A1.payloadFits(payload, 'L')) { setStatus('Payload exceeds Version 1 capacity.', 'error'); return; }
+
+    const baseSelection = els.allEcc.checked
+      ? { mode: 'allEccWinners' }
+      : (els.baseMode.value === 'manual'
+        ? { mode: 'manual', eccLevel: els.manualEcc.value, mask: Number(els.manualMask.value) }
+        : { mode: 'auto' });
+
+    const hasDecoder = typeof window.jsQR !== 'undefined';
+    els.runButton.disabled = true;
+    setStatus('Running…');
+    A2.runA2Experiment({
+      payload: payload,
+      target: targetMatrix,
+      targetMeta: targetMeta,
+      baseSelection: baseSelection,
+      seeds: A2.DEFAULT_SEEDS,
+      budgetSchedule: A2.DEFAULT_BUDGET_SCHEDULE,
+      decode: hasDecoder ? A1.jsQrDecoder(window.jsQR) : null,
+      runId: 'A2-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-1',
+      environment: {
+        userAgent: navigator.userAgent,
+        jsqrVersion: hasDecoder ? '1.4.0' : null,
+        runner: 'browser experiment-a2.html',
+        decoders: [
+          { name: 'jsQR', version: '1.4.0', role: 'browser decoder' },
+          { name: 'OpenCV QRCodeDetector', version: 'see validation/validate_opencv.py', role: 'independent decoder' },
+        ],
+      },
+      onProgress: (done, total) => setStatus('Running… ' + done + '/' + total),
+    }).then((result) => {
+      lastRun = result;
+      const s = result.summary;
+      setStatus('Generated ' + s.trialCount + ' trials; jsQR exact ' + s.jsqrExactCount + '/' + s.trialCount +
+        (hasDecoder ? '' : ' (decoder unavailable)') + '.', 'success');
+      renderSummary();
+      renderBudgetTable();
+      renderCharts();
+      buildInspectorOptions();
+      renderInspector();
+      const ok = lastRun.trials.length > 0;
+      els.exportJson.disabled = !ok; els.exportCsv.disabled = !ok; els.exportSummary.disabled = !ok;
+      els.summaryPanel.hidden = !ok; els.budgetPanel.hidden = !ok; els.chartPanel.hidden = !ok; els.inspectorPanel.hidden = !ok;
+      const base = lastRun.bases[0];
+      els.basePreviewInfo.textContent = 'Base: ' + base.candidateId + ' — A1 full similarity ' +
+        (base.fullSimilarity * 100).toFixed(2) + '%, eligible mismatches ' + base.eligibleCount + '.';
+      els.seedsInfo.textContent = lastRun.seeds.join(', ') + ' (' + lastRun.seeds.length + ')';
+      els.budgetsInfo.textContent = lastRun.budgets.join(', ') + ' (' + lastRun.budgets.length + ' budgets)';
+    }).catch((error) => {
+      setStatus('Run failed: ' + error.message, 'error');
+    }).then(() => { els.runButton.disabled = false; });
+  }
+
+  function card(label, value) { return '<div><span>' + label + '</span>' + value + '</div>'; }
+
+  function renderSummary() {
+    const s = lastRun.summary;
+    const base = lastRun.bases[0];
+    els.summaryGrid.innerHTML = [
+      card('Base QR', base.candidateId + ' (ECC ' + base.eccLevel + ' / mask ' + base.mask + ')'),
+      card('Untouched similarity', (base.fullSimilarity * 100).toFixed(2) + '%'),
+      card('Eligible mismatches', s.eligibleMismatchesTotal),
+      card('Seeds', s.seedCount),
+      card('Budgets', s.budgetCount),
+      card('Total modified candidates', s.trialCount),
+      card('jsQR exact decode', s.jsqrExactCount + ' / ' + s.trialCount),
+      card('jsQR wrong payload', s.jsqrWrongPayloadCount),
+      card('jsQR no detection', s.jsqrNoDetectionCount),
+      card('Bases compared', s.baseCount),
+    ].join('');
+  }
+
+  function renderBudgetTable() {
+    let html = '<tr><th>Budget</th><th>Modified</th><th>Similarity after</th><th>Exact</th>' +
+      '<th>Wrong</th><th>No detection</th><th>Exact rate</th><th>Codewords (mean)</th></tr>';
+    for (const row of lastRun.budgetSummary) {
+      html += '<tr><td>' + row.budget + '</td><td>' + row.actualModifiedModules + '</td>' +
+        '<td>' + (row.similarityAfterMean * 100).toFixed(2) + '%</td>' +
+        '<td>' + row.exactDecodeCount + '/' + row.trialCount + '</td>' +
+        '<td>' + row.wrongPayloadCount + '</td><td>' + row.noDetectionCount + '</td>' +
+        '<td>' + (row.exactDecodeRate * 100).toFixed(0) + '%</td>' +
+        '<td>' + (row.affectedCodewordsMean === null ? 'n/a' : row.affectedCodewordsMean.toFixed(1)) + '</td></tr>';
+    }
+    els.budgetTable.innerHTML = html;
+    const f = lastRun.failures;
+    els.failureInfo.textContent =
+      'First observed failure budget: ' + (f.firstObservedFailureBudget ?? 'none') +
+      '. Largest successful tested budget: ' + (f.largestSuccessfulTestedBudget ?? 'none') +
+      '. Observed sustained-failure budget: ' + (f.observedSustainedFailureBudget ?? 'none') +
+      ' (observations over the tested set, not theoretical limits).';
+  }
+
+  function drawChart(canvas, { points, xLabel, yLabel, yDomain, xDomain, connect }) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width; const H = canvas.height; const pad = 46;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    const [yMin, yMax] = yDomain; const [xMin, xMax] = xDomain;
+    const px = (x) => pad + ((x - xMin) / (xMax - xMin || 1)) * (W - pad - 16);
+    const py = (y) => H - pad - ((y - yMin) / (yMax - yMin || 1)) * (H - pad - 16);
+    ctx.strokeStyle = '#d0d7de'; ctx.lineWidth = 1;
+    ctx.strokeRect(pad, 16, W - pad - 16, H - pad - 16);
+    ctx.fillStyle = '#59636e'; ctx.font = '12px sans-serif';
+    ctx.fillText(xLabel, W / 2 - 40, H - 10);
+    ctx.save(); ctx.translate(14, H / 2 + 30); ctx.rotate(-Math.PI / 2); ctx.fillText(yLabel, 0, 0); ctx.restore();
+    for (let i = 0; i <= 4; i++) {
+      const y = yMin + ((yMax - yMin) * i) / 4;
+      const yy = py(y);
+      ctx.strokeStyle = '#eef1f4'; ctx.beginPath(); ctx.moveTo(pad, yy); ctx.lineTo(W - 16, yy); ctx.stroke();
+      ctx.fillStyle = '#59636e'; ctx.fillText(y.toFixed(2), 4, yy + 4);
+    }
+    ctx.strokeStyle = '#0969da'; ctx.fillStyle = '#0969da'; ctx.lineWidth = 2;
+    if (connect) ctx.beginPath();
+    points.forEach((p, i) => {
+      const x = px(p.x); const y = py(p.y);
+      if (connect) { if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    });
+    if (connect) ctx.stroke();
+    for (const p of points) {
+      ctx.beginPath(); ctx.arc(px(p.x), py(p.y), 3.5, 0, Math.PI * 2); ctx.fill();
+      if (p.label) { ctx.fillStyle = '#59636e'; ctx.fillText(p.label, px(p.x) + 5, py(p.y) - 5); ctx.fillStyle = '#0969da'; }
+    }
+    ctx.fillStyle = '#59636e';
+    for (let i = 0; i <= 4; i++) {
+      const x = xMin + ((xMax - xMin) * i) / 4;
+      ctx.fillText(String(Math.round(x)), px(x) - 6, H - pad + 16);
+    }
+  }
+
+  function renderCharts() {
+    const rows = lastRun.budgetSummary;
+    const success = rows.map((r) => ({ x: r.actualModifiedModules, y: r.exactDecodeRate, label: String(r.budget) }));
+    const similarity = rows.map((r) => ({ x: r.actualModifiedModules, y: r.similarityAfterMean, label: String(r.budget) }));
+    const tradeoff = rows.map((r) => ({ x: r.similarityAfterMean, y: r.exactDecodeRate, label: String(r.budget) }));
+    const maxModified = Math.max(1, ...rows.map((r) => r.actualModifiedModules));
+    const sims = rows.map((r) => r.similarityAfterMean);
+    drawChart(els.chartSuccess, { points: success, xLabel: 'modified modules', yLabel: 'decode success rate', yDomain: [0, 1], xDomain: [0, maxModified], connect: true });
+    drawChart(els.chartSimilarity, { points: similarity, xLabel: 'modified modules', yLabel: 'full similarity', yDomain: [Math.min(...sims) - 0.02, Math.max(...sims) + 0.02], xDomain: [0, maxModified], connect: true });
+    drawChart(els.chartTradeoff, { points: tradeoff, xLabel: 'full similarity', yLabel: 'decode success rate', yDomain: [0, 1], xDomain: [Math.min(...sims) - 0.02, Math.max(...sims) + 0.02], connect: true });
+  }
+
+  function buildInspectorOptions() {
+    const bases = lastRun.bases;
+    els.basePickWrap.hidden = bases.length < 2;
+    els.inspBaseSelect.innerHTML = bases.map((b) => '<option value="' + b.candidateId + '">' + b.candidateId + '</option>').join('');
+    els.inspSeed.innerHTML = lastRun.seeds.map((s) => '<option value="' + s + '">' + s + '</option>').join('');
+    const budgets = lastRun.budgets;
+    els.inspBudget.innerHTML = budgets.map((b) => '<option value="' + b + '">' + b + '</option>').join('');
+    // Default to the largest budget that still decoded exactly, if any.
+    const lastExact = [...lastRun.trials].reverse().find((t) => t.decodeStatus === 'EXACT');
+    if (lastExact) els.inspBudget.value = String(lastExact.budget);
+  }
+
+  function currentTrial() {
+    const baseId = els.basePickWrap.hidden ? lastRun.bases[0].candidateId : els.inspBaseSelect.value;
+    const seed = Number(els.inspSeed.value);
+    const budget = Number(els.inspBudget.value);
+    return lastRun.trials.find((t) => t.baseCandidateId === baseId && t.seed === seed && t.budget === budget);
+  }
+
+  function renderInspector() {
+    const trial = currentTrial();
+    if (!trial) { els.inspMeta.innerHTML = ''; return; }
+    const base = lastRun.bases.find((b) => b.candidateId === trial.baseCandidateId);
+    matrixToCanvas(els.inspBaseCanvas, base.baseMatrix);
+    matrixToCanvas(els.inspModifiedCanvas, trial.matrix);
+    matrixToCanvas(els.inspTargetCanvas, targetMatrix.map((row) => row.map((v) => v === 1)));
+    // Difference map.
+    const canvas = els.inspDiffCanvas;
+    const scale = 8; const size = 21;
+    canvas.width = size * scale; canvas.height = size * scale;
+    const ctx = canvas.getContext('2d');
+    const changedSet = new Set(trial.changedPositions.map((p) => p.row + ',' + p.column));
+    const roleMap = A1.buildVersion1RoleMap(trial.baseEcc);
+    const immutable = A1.IMMUTABLE_ROLES;
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const role = roleMap[r][c];
+        let color = '#ffffff';
+        if (immutable.includes(role)) color = '#d0d7de';
+        const targetDark = targetMatrix[r][c] === 1;
+        const qrDark = trial.matrix[r][c];
+        if (!immutable.includes(role)) {
+          if (qrDark === targetDark) color = changedSet.has(r + ',' + c) ? '#1a7f37' : '#ffffff';
+          else color = '#cf222e';
+        }
+        ctx.fillStyle = color;
+        ctx.fillRect(c * scale, r * scale, scale, scale);
+      }
+    }
+    const status = trial.decodeStatus === null ? 'n/a (no decoder)' : trial.decodeStatus;
+    els.inspMeta.innerHTML =
+      '<span>ECC / mask</span><span>' + trial.baseEcc + ' / ' + trial.baseMask + '</span>' +
+      '<span>Seed</span><span>' + trial.seed + '</span>' +
+      '<span>Budget</span><span>' + trial.budget + '</span>' +
+      '<span>Modified modules</span><span>' + trial.actualModifiedModules + ' / ' + trial.eligibleMismatchesTotal + ' eligible</span>' +
+      '<span>Similarity before → after</span><span>' + (trial.fullSimilarityBefore * 100).toFixed(2) + '% → ' + (trial.fullSimilarityAfter * 100).toFixed(2) + '% (+' + (trial.fullSimilarityGain * 100).toFixed(2) + ')</span>' +
+      '<span>Affected codewords</span><span>' + (trial.affectedCodewordCount === null ? 'n/a' : trial.affectedCodewordCount + ' (max ' + trial.maxFlipsInSingleCodeword + ' flips in one)') + '</span>' +
+      '<span>jsQR</span><span>' + status + '</span>';
+  }
+
+  function defaultTargetName() {
+    return els.targetSource.value === 'upload' ? ((targetMeta && targetMeta.source_file) || 'upload') : 'synthetic-' + els.targetSource.value;
+  }
+
+  function exportJson() {
+    A1.downloadText('manifest.json', JSON.stringify(A2.buildManifest({ run: lastRun, targetName: defaultTargetName() }), null, 2), 'application/json');
+  }
+  function exportCsv() {
+    A1.downloadText('results.csv', A2.buildResultsCsv({ run: lastRun, targetName: defaultTargetName() }), 'text/csv');
+  }
+  function exportSummary() {
+    A1.downloadText('budget_summary.csv', A2.buildBudgetSummaryCsv(lastRun), 'text/csv');
+  }
+  function downloadTrial() {
+    const trial = currentTrial();
+    if (trial) A1.downloadImagePng(trial.filename, trial.image);
+  }
+
+  // Initialise.
+  els.targetSource.innerHTML = A1.SYNTHETIC_TARGETS
+    .map((name) => '<option value="' + name + '">Built-in: ' + (A1.SYNTHETIC_TARGET_LABELS[name] || name) + '</option>')
+    .concat('<option value="upload">Upload image (PNG / JPEG / WebP)</option>').join('');
+  els.manualEcc.innerHTML = A1.ECC_LEVELS.map((l) => '<option value="' + l + '">' + l + '</option>').join('');
+  els.manualMask.innerHTML = A1.MASK_IDS.map((m) => '<option value="' + m + '">' + m + '</option>').join('');
+  els.seedsInfo.textContent = A2.DEFAULT_SEEDS.join(', ') + ' (' + A2.DEFAULT_SEEDS.length + ')';
+
+  els.payload.addEventListener('input', updatePayload);
+  els.targetSource.addEventListener('change', () => { if (els.targetSource.value === 'upload') els.targetFile.click(); else setTargetFromSource(); });
+  els.targetFile.addEventListener('change', (event) => handleFile(event.target.files[0]));
+  els.baseMode.addEventListener('change', () => { els.manualBase.hidden = els.baseMode.value !== 'manual'; });
+  els.runButton.addEventListener('click', run);
+  els.exportJson.addEventListener('click', exportJson);
+  els.exportCsv.addEventListener('click', exportCsv);
+  els.exportSummary.addEventListener('click', exportSummary);
+  els.downloadTrial.addEventListener('click', downloadTrial);
+  els.inspBaseSelect.addEventListener('change', renderInspector);
+  els.inspSeed.addEventListener('change', renderInspector);
+  els.inspBudget.addEventListener('change', renderInspector);
+
+  updatePayload();
+  setTargetFromSource();
+})();
+</script>
+</body>
+</html>

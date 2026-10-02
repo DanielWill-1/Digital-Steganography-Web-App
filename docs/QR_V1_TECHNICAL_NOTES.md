@@ -334,13 +334,17 @@ Every position where all four modules of a 2 × 2 block share a colour adds 3.
 Scans each line for the 7-module pattern `1011101`. When found, adds 40 if either the four
 modules before it or the four modules after it are all light.
 
-This is an approximation of the specification's 1:1:3:1:1 ratio rule. A literal
-implementation treats the pattern with its four light modules on one side as the unit and
-can count an occurrence differently when light runs exist on both sides. The deviation is
-small in practice and does not affect whether the produced symbol is valid — the mask
-chosen is still a legal mask, recorded correctly in the format information. It is noted
-here so that `A1`'s per-rule penalty columns are not compared against another
-implementation's rule-3 numbers without this caveat.
+**A4.0 correction (see [`../experiments/route-a/A4/BUG_AUDIT.md`](../experiments/route-a/A4/BUG_AUDIT.md), A4-BUG-001):**
+the original implementation tested the surrounding modules with `bit === 0`, but the matrix
+stores booleans, so `false === 0` was always false and Rule 3 never fired. It was fixed to
+test falsiness. Before the fix every recorded `penalty_rule_3` was 0; after the fix Rule 3
+fires on finder-like patterns that have four light modules on one side. A4.0 added
+deterministic fixtures covering rows, columns, and the no-light-context case.
+
+The rule remains a documented reading of the specification's 1:1:3:1:1 rule: it treats the
+7-module pattern with four light modules on one side as the unit and counts an occurrence
+once even if light runs exist on both sides. It does not affect whether a produced symbol is
+valid — the mask chosen is still a legal mask, recorded correctly in the format information.
 
 ### Rule 4 — dark-module balance (lines 376–378)
 
@@ -382,15 +386,18 @@ matrix. For `A1` this matters: the experiment needs the mask index and the per-r
 penalties, so the encoder will need to expose them, or the experiment will need to
 re-derive the selection. That is an `A1` design decision, not something to change now.
 
-Observed selection for the payload `g.co` (recorded during the documentation pass, for
+Observed selection for the payload `g.co` (corrected values after the A4.0 Rule-3 fix; for
 reference only — not an experiment result):
 
 | Level | Selected mask | Penalties (masks 0–7) |
 | :--- | ---: | :--- |
-| L | 2 | 285, 321, **277**, 333, 288, 323, 341, 284 |
-| M | 0 | **272**, 316, 320, 325, 301, 308, 292, 325 |
-| Q | 6 | 287, 392, 301, 344, 288, 329, **268**, 317 |
-| H | 0 | **293**, 337, 306, 362, 360, 315, 330, 330 |
+| L | 3 | 445, 361, 437, **333**, 368, 403, 381, 484 |
+| M | 6 | 312, 396, 360, 485, 341, 348, **292**, 565 |
+| Q | 0 | **287**, 592, 341, 424, 568, 449, 348, 397 |
+| H | 2 | 413, 417, **306**, 402, 640, 475, 370, 450 |
+
+(The pre-fix values, with Rule 3 always 0, were L→2, M→0, Q→6, H→0; the Rule-3 fix changed
+both the penalty totals and the standard-selected mask.)
 
 ---
 
@@ -493,8 +500,9 @@ changed.
 2. **Byte mode only.** Mode indicator is the literal `[0, 1, 0, 0]`.
 3. **Capacity error message uses a derived constant.** `dataCapacity − 2` is correct for
    Version 1 byte mode at all four levels but is not obviously correct on inspection.
-4. **Mask penalty rule 3 is an approximation** of the specification's 1:1:3:1:1 rule. See
-   above for the exact difference.
+4. **Mask penalty rule 3 was dead code before A4.0** (`bit === 0` on booleans never matched).
+   Corrected in A4.0; see the Rule 3 section above and
+   [`../experiments/route-a/A4/BUG_AUDIT.md`](../experiments/route-a/A4/BUG_AUDIT.md).
 5. **`qrMatrix` does not return the selected mask or the penalty breakdown.** `A1` needs
    both.
 6. **No remainder-bit handling.** Correct for Version 1 (there are none), incorrect for any

@@ -1,0 +1,86 @@
+{
+  "experiment": "A4",
+  "description": "Core synthetic degradation subset applied to A4 generalization operating points.",
+  "presets": [
+    {
+      "id": "PRISTINE",
+      "family": "pristine",
+      "params": {}
+    },
+    {
+      "id": "RESIZE_6",
+      "family": "resize",
+      "params": {
+        "module_pitch": 6,
+        "interpolation": "area-downscale"
+      }
+    },
+    {
+      "id": "RESIZE_4",
+      "family": "resize",
+      "params": {
+        "module_pitch": 4,
+        "interpolation": "area-downscale"
+      }
+    },
+    {
+      "id": "BLUR_100",
+      "family": "blur",
+      "params": {
+        "blur_sigma": 1.0
+      }
+    },
+    {
+      "id": "JPEG_70",
+      "family": "jpeg",
+      "params": {
+        "jpeg_quality": 70
+      }
+    },
+    {
+      "id": "JPEG_50",
+      "family": "jpeg",
+      "params": {
+        "jpeg_quality": 50
+      }
+    },
+    {
+      "id": "ROT_M5",
+      "family": "rotation",
+      "params": {
+        "angle_deg": -5,
+        "background": "white",
+        "canvas": "expanded"
+      }
+    },
+    {
+      "id": "ROT_P5",
+      "family": "rotation",
+      "params": {
+        "angle_deg": 5,
+        "background": "white",
+        "canvas": "expanded"
+      }
+    },
+    {
+      "id": "PERSP_05",
+      "family": "perspective",
+      "params": {
+        "magnitude": 0.05,
+        "variant": "quad",
+        "background": "white"
+      }
+    },
+    {
+      "id": "PERSP_12",
+      "family": "perspective",
+      "params": {
+        "magnitude": 0.12,
+        "variant": "quad",
+        "background": "white"
+      }
+    }
+  ],
+  "case_count": 4800,
+  "note": "Transforms are applied in isolation; transformed PNGs are shared by jsQR and OpenCV."
+}

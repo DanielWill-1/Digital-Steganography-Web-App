@@ -1,31 +1,45 @@
-# StegoCode: Browser-Based Steganography and Visual Machine-Readable Code Research
+# StegoCode
 
-StegoCode is two things at once:
+**A browser-based research studio for visually integrated machine-readable codes and image
+steganography.**
 
-1. **A working browser application** — client-side tools for protected image
-   steganography and for standalone Version 1 QR generation and scanning. No build step,
-   no framework, no server, no dependency installation.
-2. **An ongoing research and learning project** — a structured investigation into how far
-   machine-readable visual codes can be pushed toward human-meaningful appearance, and how
-   much data can be hidden inside ordinary images.
+StegoCode studies the trade-offs among visual appearance, machine readability, error
+correction, data capacity, digital robustness, camera robustness, and hiddenness. It has two
+halves: working client-side applications (no build step, no framework, no server, no accounts),
+and a structured research programme built around them without replacing them.
 
-Both halves matter. The applications work today; the research programme is being built
-around them without replacing them.
+## Start here
 
----
+- [`docs/START_HERE.md`](docs/START_HERE.md) — the project in plain language (no QR/ECC background needed).
+- [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) — one-page current status.
+- [`docs/RESEARCH_ROADMAP.md`](docs/RESEARCH_ROADMAP.md) — the full three-route programme.
 
-## Quick start
+## What does it do, and why three routes?
 
-Open any of these files in a modern browser:
+Three research routes relax different constraints:
+
+| Route | Idea | Ordinary QR scanner | StegoCode decoder | Status |
+| :--- | :--- | :---: | :---: | :--- |
+| **A** — Standards-Compatible Artistic QR | A valid QR symbol pushed toward a logo | Required | Not needed | A1–A3 complete; A4 physical validation pending |
+| **B** — Custom Logo Code | A logo-like custom symbol | Not required | Required | Planned |
+| **C** — Image Steganography | Data hidden in an ordinary image | not applicable | Required | Baseline exists; robust work planned |
+
+## What currently works
 
 | File | What it does |
 | :--- | :--- |
-| `stego_app.html` | Hide and recover a UTF-8 message in a lossless image |
-| `qr_app copy.html` | Generate a Version 1 QR symbol from scratch and scan QR images or camera frames |
+| `stego_app.html` | Hide and recover a UTF-8 message in a lossless image (Route C baseline) |
+| `qr_app copy.html` | Generate a Version 1 QR symbol from scratch and scan QR images or camera frames (Route A baseline) |
 | `qr_app.html` | QR Studio using the `qrcodejs` library for generation |
 
-Camera scanning needs a secure context (HTTPS or `localhost`) and browser camera
-permission. Generation in `stego_app.html` and `qr_app copy.html` needs no network access.
+Camera scanning needs a secure context (HTTPS or `localhost`) and browser camera permission.
+Generation in `stego_app.html` and `qr_app copy.html` needs no network access.
+
+## Active experiment
+
+Route A / **A4** — software implemented: the correctness audit, the 96-configuration
+generalization benchmark, and the physical-testing tooling are complete. **Physical validation
+is pending real data**, so Route A is **not** yet scientifically complete.
 
 ---
 
@@ -169,8 +183,8 @@ The full list, with mechanisms, is in [`docs/LIMITATIONS.md`](docs/LIMITATIONS.m
 
 ## Research programme
 
-The project is split into three research routes. All three are documented; only Route A is
-active.
+The project is split into three research routes. **Route A is the active route; Route C has a
+working baseline; Route B is planned.**
 
 ```text
 Route A — standards-compatible artistic QR
@@ -200,28 +214,36 @@ Route C: data hidden in the image signal itself
 ### Current research state
 
 ```text
-Current route:            Route A
-Current stage:            documentation / research foundation
-Next experiment:          A1 — Mask/ECC Visual Similarity Baseline
-A1 implementation status: NOT STARTED
+Current route:            Route A (A1 → A2 → A3 → A4)
+Current stage:            A4 software implemented; generalization complete; physical validation PENDING
+Current experiment:       A4 — Multi-Target Generalization + Physical Validation + Final Analysis
+Current experiment status: implemented (physical data not yet collected)
+Next step:                collect physical screen / print / camera trials
+Route A status:           NOT YET COMPLETE (physical validation pending)
 ```
 
-**There is no target-logo optimiser in this repository, and none was added during the
-documentation phase.**
-
-Route A's progression:
+The Route A roadmap (A0 is historical baseline validation, not a separate active experiment):
 
 ```text
-A0  freeze and validate the current Version 1 encoder
-A1  mask/ECC visual-similarity baseline            <-- next, not implemented
-A2  controlled target-directed module modification
-A3  codeword-aware optimization
-A4  synthetic robustness testing
-A5  physical camera testing
-A6  logo-aware optimization algorithm
-A7  multi-logo evaluation
-A8  comparison with existing artistic QR approaches
+A1  baseline ECC/mask visual study                        ✅ complete (control, frozen)
+A2  controlled random target-directed modification        ✅ complete (frozen)
+A3  codeword-aware optimization + synthetic robustness    ✅ complete (frozen)
+A4  multi-target generalization + physical validation     ✅ software implemented; physical data PENDING
 ```
+
+A1–A4 records live under [`experiments/route-a/`](experiments/route-a/), with the cross-experiment
+summary in [`docs/ROUTE_A_FINAL_REPORT.md`](docs/ROUTE_A_FINAL_REPORT.md) (STATUS: physical
+validation pending).
+
+**A3 adds the first optimiser in this repository** — a deterministic, decoder-independent,
+codeword-aware placement strategy. A4 is an evaluation/hardening experiment: it audits the
+foundations, generalizes across targets/payloads/ECC, and provides physical-testing tooling. There
+is still no machine learning, no generative method, and no decoder-feedback optimisation.
+
+Records: [`experiments/route-a/A1/README.md`](experiments/route-a/A1/README.md),
+[`experiments/route-a/A2/README.md`](experiments/route-a/A2/README.md),
+[`experiments/route-a/A3/README.md`](experiments/route-a/A3/README.md), and
+[`experiments/route-a/A4/README.md`](experiments/route-a/A4/README.md).
 
 ---
 
@@ -229,13 +251,16 @@ A8  comparison with existing artistic QR approaches
 
 | Document | Purpose |
 | :--- | :--- |
+| [`docs/START_HERE.md`](docs/START_HERE.md) | Plain-language introduction to the whole project |
+| [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) | One-page current status |
 | [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | What StegoCode is, origin questions, repository map |
 | [`docs/CURRENT_IMPLEMENTATION.md`](docs/CURRENT_IMPLEMENTATION.md) | What the code does; the exact difference between the two QR pages; network behaviour |
 | [`docs/RESEARCH_ROADMAP.md`](docs/RESEARCH_ROADMAP.md) | The programme, the three routes, ordering rules |
 | [`docs/RESEARCH_METHODOLOGY.md`](docs/RESEARCH_METHODOLOGY.md) | Rules every experiment must follow |
 | [`docs/TERMINOLOGY.md`](docs/TERMINOLOGY.md) | Definitions, including the encryption/encoding distinction |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | What the code cannot do, without marketing language |
-| [`docs/ROUTE_A_ARTISTIC_QR.md`](docs/ROUTE_A_ARTISTIC_QR.md) | Route A in full: `A0`–`A8`, normalisation, metrics |
+| [`docs/ROUTE_A_ARTISTIC_QR.md`](docs/ROUTE_A_ARTISTIC_QR.md) | Route A in full: `A1`–`A4`, normalisation, metrics |
+| [`docs/ROUTE_A_FINAL_REPORT.md`](docs/ROUTE_A_FINAL_REPORT.md) | Cross-experiment Route A report (STATUS: physical validation pending) |
 | [`docs/ROUTE_B_CUSTOM_LOGO_CODE.md`](docs/ROUTE_B_CUSTOM_LOGO_CODE.md) | Route B in full |
 | [`docs/ROUTE_C_IMAGE_STEGANOGRAPHY.md`](docs/ROUTE_C_IMAGE_STEGANOGRAPHY.md) | Route C in full |
 | [`docs/QR_V1_TECHNICAL_NOTES.md`](docs/QR_V1_TECHNICAL_NOTES.md) | The Version 1 QR encoder, function by function |

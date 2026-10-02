@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A4 — Multi-Target Generalization &amp; Final Route A Analysis</title>
+<style>
+  :root { --bg:#f6f8fa; --panel:#fff; --panel-2:#f2f5f9; --border:#d0d7de; --text:#1f2328; --muted:#59636e; --accent:#0969da; --good:#1a7f37; --bad:#cf222e; --warn:#9a6700; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { background:var(--panel); border-bottom:1px solid var(--border); }
+  header .inner, main { max-width:1180px; margin:0 auto; padding:20px; }
+  h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:15px; margin:0 0 12px; } h3 { font-size:12px; margin:0 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:18px; margin-top:16px; }
+  label { color:var(--muted); font-size:12px; }
+  select, input[type=file] { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font:inherit; background:#fff; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:9px 16px; font:inherit; font-weight:600; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--text); border:1px solid var(--border); font-weight:500; }
+  button:disabled { opacity:0.5; cursor:not-allowed; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { text-align:left; padding:5px 7px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:600; }
+  .hint { color:var(--muted); font-size:12px; margin-top:6px; }
+  .success { color:var(--good); font-weight:600; } .error { color:var(--bad); }
+  .corpus { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; }
+  .corpus figure { margin:0; text-align:center; }
+  .corpus canvas { width:96px; height:96px; image-rendering:pixelated; border:1px solid var(--border); background:#fff; border-radius:6px; }
+  .corpus figcaption { font-size:11px; color:var(--muted); }
+  .chips { display:flex; gap:14px; flex-wrap:wrap; }
+  .chips label { display:inline-flex; gap:6px; align-items:center; }
+  .thumb { width:150px; height:150px; image-rendering:pixelated; background:#fff; border:1px solid var(--border); border-radius:6px; }
+  .preview-row { display:flex; gap:16px; flex-wrap:wrap; }
+  .preview-row figure { margin:0; } figcaption { color:var(--muted); font-size:11px; margin-top:4px; }
+  .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  .charts canvas { width:100%; height:auto; background:#fff; border:1px solid var(--border); border-radius:8px; }
+  .banner { background:#fff8e5; border:1px solid #e6c200; color:#6b5900; border-radius:8px; padding:10px 12px; font-size:13px; }
+  .cwbar { display:grid; grid-template-columns:90px 1fr 60px; gap:6px; align-items:center; font-size:11px; margin-bottom:2px; }
+  .cwbar .bar { background:var(--accent); height:10px; border-radius:2px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <h1>A4 — Multi-Target Generalization &amp; Final Route A Analysis</h1>
+    <p class="hint" style="margin:0">Does the A3 codeword-aware advantage generalize across targets, payloads, and ECC
+    levels — and (pending) survive real screens, printers, and cameras?</p>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>1. Target corpus</h2>
+    <div class="corpus" id="corpus"></div>
+    <p class="hint">Canonical 21×21 synthetic targets (project-owned); the PNG fixtures are the same matrices.</p>
+  </section>
+
+  <section class="panel">
+    <h2>2. Payload corpus and ECC</h2>
+    <h3>Payloads (UTF-8 byte length in brackets)</h3>
+    <div class="chips" id="payloads"></div>
+    <h3 style="margin-top:12px">ECC levels</h3>
+    <div class="chips" id="eccs"></div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Run benchmark (bounded, in-page)</h2>
+    <p class="hint">Runs the selected targets × payloads × ECC with jsQR. The full 96-configuration recorded
+    benchmark is produced by <code>node tests/run-generalization.js</code>; this page runs a subset interactively.</p>
+    <div class="actions">
+      <button id="run">Run benchmark</button>
+      <button id="cancel" class="secondary" disabled>Cancel</button>
+    </div>
+    <p class="hint" id="progress">Idle.</p>
+  </section>
+
+  <section class="panel" id="overviewPanel" hidden>
+    <h2>4. Results overview</h2>
+    <div id="overviewSummary" class="hint"></div>
+    <table id="overviewTable"></table>
+    <div class="charts" style="margin-top:14px">
+      <figure><canvas id="chartGain" width="640" height="360"></canvas><figcaption>Median A3 clean-max similarity gain by ECC</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="panel" id="inspectorPanel" hidden>
+    <h2>5. Target inspector</h2>
+    <div class="actions" style="align-items:flex-end">
+      <div style="min-width:260px"><label for="inspConfig">Configuration</label><select id="inspConfig"></select></div>
+    </div>
+    <div class="preview-row" style="margin-top:12px">
+      <figure><canvas class="thumb" id="insTarget" width="150" height="150"></canvas><figcaption>Target</figcaption></figure>
+      <figure><canvas class="thumb" id="insBase" width="150" height="150"></canvas><figcaption>A1 base</figcaption></figure>
+      <figure><canvas class="thumb" id="insA3" width="150" height="150"></canvas><figcaption>A3 clean-max</figcaption></figure>
+      <figure><canvas class="thumb" id="insDiff" width="150" height="150"></canvas><figcaption>difference map (debug)</figcaption></figure>
+    </div>
+    <h3 style="margin-top:12px">A3 codeword distribution</h3>
+    <div id="cwDistribution"></div>
+    <div class="hint" id="inspMeta"></div>
+  </section>
+
+  <section class="panel">
+    <h2>6. Cross-environment status</h2>
+    <table id="envTable"></table>
+    <p class="hint">See <code>CROSS_ENVIRONMENT_NOTES.md</code>. Only tested environments are marked PASS.</p>
+  </section>
+
+  <section class="panel">
+    <h2>7. Physical validation status</h2>
+    <p class="banner" id="physicalBanner">PHYSICAL DATA NOT YET COLLECTED</p>
+    <p class="hint">Collect with <code>physical/screen-test.html</code>, <code>physical/print-sheet.html</code>, and
+    <code>physical/physical-test-recorder.html</code>; analyse with <code>python validation/physical_analysis.py</code>.</p>
+    <label for="physFile" style="display:block;margin-top:8px">Load physical_summary.csv</label>
+    <input type="file" id="physFile" accept=".csv">
+    <div id="physWrap" hidden style="margin-top:12px"><table id="physTable"></table></div>
+  </section>
+
+  <section class="panel">
+    <h2>8. Final analysis (load exported results)</h2>
+    <label for="opFile">Load operating_points.csv (from validation/analyze_results.py)</label>
+    <input type="file" id="opFile" accept=".csv">
+    <div id="opWrap" hidden style="margin-top:12px">
+      <table id="opTable"></table>
+      <div class="charts" style="margin-top:14px">
+        <figure><canvas id="chartFrontier" width="640" height="360"></canvas><figcaption>A2 vs A3 affected codewords at matched similarity</figcaption></figure>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>if (typeof window.jsQR === 'undefined') { var s = document.createElement('script'); s.src = '../../../third_party/jsQR/jsQR.min.js'; document.head.appendChild(s); }</script>
+<script src="../A1/js/qr-role-map.js"></script>
+<script src="../A1/js/qr-experiment.js"></script>
+<script src="../A1/js/metrics.js"></script>
+<script src="../A1/js/target-grid.js"></script>
+<script src="../A1/js/export-results.js"></script>
+<script src="../A1/js/experiment-runner.js"></script>
+<script src="../A2/js/modification-strategy.js"></script>
+<script src="../A2/js/metrics-a2.js"></script>
+<script src="../A2/js/experiment-runner.js"></script>
+<script src="../A3/js/codeword-optimizer.js"></script>
+<script src="../A3/js/metrics-a3.js"></script>
+<script src="../A3/js/robustness-summary.js"></script>
+<script src="./js/hash.js"></script>
+<script src="./js/target-corpus.js"></script>
+<script src="./js/operating-points.js"></script>
+<script src="./js/generalization-runner.js"></script>
+<script src="./js/physical-session.js"></script>
+<script src="./js/analysis.js"></script>
+<script src="./js/export-results.js"></script>
+<script>
+(function () {
+  const A1 = globalThis.StegoA1;
+  const A4 = globalThis.StegoA4;
+  const $ = (id) => document.getElementById(id);
+
+  let run = null;        // { configs }
+  let cancelRequested = false;
+
+  function matrixToCanvas(canvas, matrix01, scale) {
+    const bool = matrix01.map((row) => row.map((v) => v === 1 || v === true));
+    const image = A1.renderMatrixToImageData({ matrix: bool, moduleScale: scale || 7, quietZone: 0 });
+    canvas.width = image.width; canvas.height = image.height;
+    canvas.getContext('2d').putImageData(new ImageData(image.data, image.width, image.height), 0, 0);
+  }
+
+  // Corpus preview.
+  const corpus = $('corpus');
+  for (const target of A4.TARGETS) {
+    const figure = document.createElement('figure');
+    const canvas = document.createElement('canvas');
+    matrixToCanvas(canvas, target.matrix, 5);
+    const caption = document.createElement('figcaption');
+    caption.textContent = `${target.id} ${target.name} (${target.category})`;
+    figure.appendChild(canvas); figure.appendChild(caption);
+    corpus.appendChild(figure);
+  }
+
+  // Payload/ECC selectors.
+  const PAYLOADS = ['a', 'g.co', 'abcdefg'];
+  $('payloads').innerHTML = PAYLOADS.map((p) => `<label><input type="checkbox" value="${p}" checked> ${p} [${A1.utf8ByteLength(p)}]</label>`).join('');
+  $('eccs').innerHTML = ['L', 'M', 'Q', 'H'].map((e) => `<label><input type="checkbox" value="${e}" checked> ${e}</label>`).join('');
+
+  const selectedValues = (container) => Array.from(container.querySelectorAll('input:checked')).map((i) => i.value);
+
+  // Benchmark run (bounded, yielding).
+  function runBenchmark() {
+    const payloads = selectedValues($('payloads'));
+    const eccs = selectedValues($('eccs'));
+    const descriptors = A4.allConfigurations(A4.TARGETS, payloads, eccs);
+    if (!payloads.length || !eccs.length) { $('progress').textContent = 'Select at least one payload and one ECC level.'; return; }
+    const decode = typeof window.jsQR !== 'undefined' ? A1.jsQrDecoder(window.jsQR) : null;
+    run = { configs: [] };
+    cancelRequested = false;
+    $('run').disabled = true; $('cancel').disabled = false;
+    let index = 0;
+    const step = () => {
+      if (cancelRequested || index >= descriptors.length) {
+        $('run').disabled = false; $('cancel').disabled = true;
+        $('progress').textContent = cancelRequested ? `Cancelled after ${index}/${descriptors.length} configurations.` : `Complete: ${run.configs.length} configurations.`;
+        renderOverview();
+        return;
+      }
+      const d = descriptors[index];
+      $('progress').textContent = `Running ${index + 1}/${descriptors.length} — ${d.targetId} / ${d.payload} / ${d.eccLevel}`;
+      try {
+        const config = A4.generateConfig({ target: d.target.matrix, targetId: d.targetId, targetMeta: d.target, payload: d.payload, eccLevel: d.eccLevel, decode });
+        if (config) run.configs.push(config);
+      } catch (error) { /* record nothing; continue */ }
+      index++;
+      setTimeout(step, 0);
+    };
+    step();
+  }
+
+  function renderOverview() {
+    if (!run || !run.configs.length) return;
+    const agg = A4.aggregate(run.configs);
+    $('overviewPanel').hidden = false;
+    $('inspectorPanel').hidden = false;
+    $('overviewSummary').textContent =
+      `${agg.rows.length} configurations · A3 clean-max (jsQR) present ${agg.rows.filter((r) => r.a3CleanMax).length} · ` +
+      `similarity gain mean ${(agg.gainMean * 100).toFixed(2)}pp, median ${(agg.gainMedian * 100).toFixed(2)}pp, ` +
+      `min ${(agg.gainMin * 100).toFixed(2)}pp, max ${(agg.gainMax * 100).toFixed(2)}pp`;
+    let html = '<tr><th>config</th><th>target</th><th>payload</th><th>ECC</th><th>A1 similarity</th><th>A3 clean-max budget</th><th>A3 codewords</th><th>A3 similarity</th><th>gain</th></tr>';
+    for (const row of agg.rows) {
+      const gain = row.a3CleanMax ? (row.a3CleanMax.similarity - row.a1Similarity) : null;
+      html += `<tr><td>${row.configId}</td><td>${row.targetName}</td><td>${row.payload}</td><td>${row.eccLevel}</td>` +
+        `<td>${(row.a1Similarity * 100).toFixed(2)}%</td><td>${row.a3CleanMax ? row.a3CleanMax.budget : 'n/a'}</td>` +
+        `<td>${row.a3CleanMax ? row.a3CleanMax.cw : 'n/a'}</td>` +
+        `<td>${row.a3CleanMax ? (row.a3CleanMax.similarity * 100).toFixed(2) + '%' : 'n/a'}</td>` +
+        `<td>${gain === null ? 'n/a' : '+' + (gain * 100).toFixed(2) + 'pp'}</td></tr>`;
+    }
+    $('overviewTable').innerHTML = html;
+    drawBars($('chartGain'), ['L', 'M', 'Q', 'H'].map((e) => ({ label: e, value: agg.byEcc[e] })), 'median gain by ECC');
+    buildInspectorOptions();
+    renderInspector();
+  }
+
+  function drawBars(canvas, series, title) {
+    const ctx = canvas.getContext('2d'); const W = canvas.width; const H = canvas.height; const pad = 46;
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#59636e'; ctx.font = '13px sans-serif'; ctx.fillText(title, pad, 20);
+    const values = series.map((s) => s.value).filter((v) => v !== null && v !== undefined);
+    const max = Math.max(0.001, ...values);
+    const barW = (W - pad - 30) / series.length;
+    series.forEach((s, i) => {
+      const h = s.value === null || s.value === undefined ? 0 : (s.value / max) * (H - pad - 40);
+      const x = pad + i * barW + 10;
+      ctx.fillStyle = '#0969da'; ctx.fillRect(x, H - pad - h, barW - 20, h);
+      ctx.fillStyle = '#1f2328'; ctx.font = '12px sans-serif';
+      ctx.fillText(s.label, x + 4, H - pad + 16);
+      ctx.fillText(s.value === null || s.value === undefined ? 'n/a' : (s.value * 100).toFixed(2) + 'pp', x - 2, H - pad - h - 6);
+    });
+  }
+
+  function buildInspectorOptions() {
+    $('inspConfig').innerHTML = run.configs.map((c) => `<option value="${c.configId}">${c.configId}</option>`).join('');
+  }
+
+  function renderInspector() {
+    if (!run || !run.configs.length) return;
+    const config = run.configs.find((c) => c.configId === $('inspConfig').value) || run.configs[0];
+    const cleanMax = A4.pickCleanMax(config.a3Candidates);
+    const target = A4.TARGETS.find((t) => t.id === config.targetId).matrix;
+    matrixToCanvas($('insTarget'), target, 7);
+    matrixToCanvas($('insBase'), config.base.matrix.map((r) => r.map((v) => (v ? 1 : 0))), 7);
+    if (cleanMax) matrixToCanvas($('insA3'), cleanMax.matrix.map((r) => r.map((v) => (v ? 1 : 0))), 7);
+
+    const canvas = $('insDiff'); const scale = 7; const size = 21;
+    canvas.width = size * scale; canvas.height = size * scale;
+    const ctx = canvas.getContext('2d');
+    const roleMap = A1.buildVersion1RoleMap(config.eccLevel);
+    const immutable = A1.IMMUTABLE_ROLES;
+    const changed = cleanMax ? new Set(cleanMax.changedPositions.map((p) => p.row + ',' + p.column)) : new Set();
+    const activeMatrix = cleanMax ? cleanMax.matrix : config.base.matrix;
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+      let color = '#ffffff';
+      if (immutable.includes(roleMap[r][c])) color = '#d0d7de';
+      else if (activeMatrix[r][c] === (target[r][c] === 1)) color = changed.has(r + ',' + c) ? '#1a7f37' : '#ffffff';
+      else color = '#cf222e';
+      ctx.fillStyle = color; ctx.fillRect(c * scale, r * scale, scale, scale);
+    }
+
+    const flips = (cleanMax && cleanMax.flipsPerCodeword) || {};
+    const indices = Object.keys(flips).map(Number).sort((a, b) => a - b);
+    const maxFlips = Math.max(1, ...indices.map((i) => flips[i]));
+    const types = {};
+    if (cleanMax) for (const p of cleanMax.changedPositions) types[p.codewordIndex] = p.codewordType;
+    $('cwDistribution').innerHTML = indices.length
+      ? indices.map((i) => `<div class="cwbar"><span>CW ${i} (${types[i]})</span><span class="bar" style="width:${(100 * flips[i]) / maxFlips}%"></span><span>${flips[i]} flips</span></div>`).join('')
+      : '<p class="hint">No affected codewords for this configuration.</p>';
+    $('inspMeta').textContent = cleanMax
+      ? `A1: ${(config.base.similarity * 100).toFixed(2)}% · A3 clean-max: ${(cleanMax.fullSimilarityAfter * 100).toFixed(2)}% at budget ${cleanMax.moduleBudget} (${cleanMax.affectedCodewordCount} codewords).`
+      : 'No jsQR-clean A3 candidate for this configuration.';
+  }
+
+  // Cross-environment status (static, mirrors CROSS_ENVIRONMENT_NOTES.md).
+  const envRows = [
+    ['file:// direct open', 'PASS', 'classic scripts; no ES modules'],
+    ['localhost (python -m http.server)', 'PASS', 'verified by HTTP fetch'],
+    ['Chromium/Chrome', 'NOT TESTED', 'no browser automation in this environment'],
+    ['Firefox', 'NOT TESTED', ''],
+    ['Edge/Opera', 'NOT TESTED', ''],
+    ['Node', 'PASS', 'v22.12.0'],
+    ['Python', 'PASS', '3.11.0'],
+    ['OpenCV', 'PASS', '4.12.0'],
+    ['jsQR', 'PASS', 'pinned 1.4.0 (third_party/jsQR, sha256 recorded)'],
+  ];
+  $('envTable').innerHTML = '<tr><th>Environment</th><th>Status</th><th>Notes</th></tr>' +
+    envRows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+
+  // Physical results loader.
+  $('physFile').addEventListener('change', (event) => {
+    const file = event.target.files[0]; if (!file) return;
+    file.text().then((text) => {
+      const rows = A4.parseCsv(text);
+      $('physWrap').hidden = false;
+      $('physicalBanner').textContent = 'PHYSICAL DATA COLLECTED';
+      $('physicalBanner').style.background = '#e6ffed';
+      $('physicalBanner').style.borderColor = '#1a7f37';
+      $('physicalBanner').style.color = '#0b3d20';
+      let html = '<tr><th>candidate</th><th>medium</th><th>device</th><th>size</th><th>angle</th><th>light</th><th>attempts</th><th>exact</th><th>rate</th><th>Wilson 95%</th></tr>';
+      for (const r of rows) {
+        const lo = Number(r.wilson_low), hi = Number(r.wilson_high);
+        html += `<tr><td>${r.candidate_id}</td><td>${r.medium}</td><td>${r.device}</td><td>${r.symbol_size}</td><td>${r.angle_deg}</td><td>${r.lighting}</td>` +
+          `<td>${r.attempt_count}</td><td>${r.exact_count}</td><td>${(Number(r.exact_rate) * 100).toFixed(0)}%</td>` +
+          `<td>${Number.isFinite(lo) ? `[${(lo * 100).toFixed(0)}%, ${(hi * 100).toFixed(0)}%]` : 'n/a'}</td></tr>`;
+      }
+      $('physTable').innerHTML = html;
+    });
+  });
+
+  // Final analysis loader.
+  $('opFile').addEventListener('change', (event) => {
+    const file = event.target.files[0]; if (!file) return;
+    file.text().then((text) => {
+      const rows = A4.parseCsv(text);
+      $('opWrap').hidden = false;
+      let html = '<tr><th>config</th><th>target</th><th>payload</th><th>ECC</th><th>A1</th><th>A3 clean-max</th><th>A3 CW</th><th>A3 ROBUST</th><th>A2 matched CW (mean)</th><th>A2 clean rate</th><th>A2 robust</th></tr>';
+      const points = [];
+      for (const r of rows) {
+        html += `<tr><td>${r.config_id}</td><td>${r.target_name}</td><td>${r.payload}</td><td>${r.ecc}</td>` +
+          `<td>${(Number(r.a1_similarity) * 100).toFixed(2)}%</td>` +
+          `<td>${r.a3_clean_max_similarity === '' ? 'n/a' : (Number(r.a3_clean_max_similarity) * 100).toFixed(2) + '%'}</td>` +
+          `<td>${r.a3_clean_max_cw}</td>` +
+          `<td>${r.a3_robust_similarity === '' ? 'n/a' : (Number(r.a3_robust_similarity) * 100).toFixed(2) + '%'}</td>` +
+          `<td>${r.a2_mean_cw}</td><td>${r.a2_clean_exact_rate === '' ? 'n/a' : (Number(r.a2_clean_exact_rate) * 100).toFixed(0) + '%'}</td>` +
+          `<td>${r.a2_robust_rate === '' ? 'n/a' : (Number(r.a2_robust_rate) * 100).toFixed(0) + '%'}</td></tr>`;
+        const a2cw = Number(r.a2_mean_cw), a3cw = Number(r.a3_clean_max_cw), sim = Number(r.a3_clean_max_similarity);
+        if (Number.isFinite(a2cw) && Number.isFinite(a3cw) && Number.isFinite(sim)) points.push({ sim, a2cw, a3cw });
+      }
+      $('opTable').innerHTML = html;
+      drawScatter($('chartFrontier'), points);
+    });
+  });
+
+  function drawScatter(canvas, points) {
+    const ctx = canvas.getContext('2d'); const W = canvas.width; const H = canvas.height; const pad = 46;
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    const maxCw = Math.max(1, ...points.map((p) => Math.max(p.a2cw, p.a3cw)));
+    const sims = points.map((p) => p.sim);
+    const minSim = Math.min(0.4, ...sims); const maxSim = Math.max(0.8, ...sims);
+    const px = (s) => pad + ((s - minSim) / (maxSim - minSim)) * (W - pad - 16);
+    const py = (cw) => H - pad - (cw / maxCw) * (H - pad - 16);
+    ctx.strokeStyle = '#d0d7de'; ctx.strokeRect(pad, 16, W - pad - 16, H - pad - 16);
+    ctx.fillStyle = '#59636e'; ctx.font = '12px sans-serif';
+    ctx.fillText('similarity ->', W / 2 - 30, H - 10);
+    ctx.save(); ctx.translate(14, H / 2 + 20); ctx.rotate(-Math.PI / 2); ctx.fillText('affected codewords', 0, 0); ctx.restore();
+    for (const p of points) { ctx.fillStyle = 'rgba(207,34,46,0.55)'; ctx.beginPath(); ctx.arc(px(p.sim), py(p.a2cw), 3, 0, Math.PI * 2); ctx.fill(); }
+    for (const p of points) { ctx.fillStyle = 'rgba(26,127,55,0.8)'; ctx.beginPath(); ctx.arc(px(p.sim), py(p.a3cw), 3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = '#cf222e'; ctx.fillText('A2', W - 60, 30);
+    ctx.fillStyle = '#1a7f37'; ctx.fillText('A3', W - 60, 46);
+  }
+
+  $('run').addEventListener('click', runBenchmark);
+  $('cancel').addEventListener('click', () => { cancelRequested = true; });
+  $('inspConfig').addEventListener('change', renderInspector);
+})();
+</script>
+</body>
+</html>

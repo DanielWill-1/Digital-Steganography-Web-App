@@ -1,0 +1,90 @@
+{
+  "experiment": "A4",
+  "route": "A",
+  "experiment_name": "Multi-target generalization + cross-environment hardening + physical validation + final analysis",
+  "experiment_id": "A4",
+  "run_id": "A4-20261002-1",
+  "timestamp": "2026-10-02T19:54:11.360Z",
+  "research_question": "Does the A3 codeword-aware advantage generalize across target structures, payload lengths, ECC levels, decoder environments, and (pending) screens, printers, and cameras?",
+  "targets": [
+    {
+      "target_id": "T01",
+      "target_name": "circle",
+      "target_category": "simple",
+      "matrix_hash": "1f82a064dd4c4a534f9d821e08063b699b6d145f48abbc2b1788f16d5a0f3acb"
+    },
+    {
+      "target_id": "T02",
+      "target_name": "g-like",
+      "target_category": "letter-like",
+      "matrix_hash": "735453e8ca97afaa001d8ea48f1fec8f65383788d93a4b4899c032fff402b13e"
+    },
+    {
+      "target_id": "T03",
+      "target_name": "diagonal",
+      "target_category": "letter-like",
+      "matrix_hash": "4ec6fed4168b92bf2722f371d47bf716694f4f4331e0a9f69c66fdbb10fff4be"
+    },
+    {
+      "target_id": "T04",
+      "target_name": "triangle",
+      "target_category": "geometric",
+      "matrix_hash": "dd1e817ad188ea4e6a64c1d6118e7e6ad52c9fd061ab41151292acf9ed083247"
+    },
+    {
+      "target_id": "T05",
+      "target_name": "cross",
+      "target_category": "geometric",
+      "matrix_hash": "2231990307ef0b85ed0ffaee6dc57af2c605a8075be648293afd4ad50e6ff20c"
+    },
+    {
+      "target_id": "T06",
+      "target_name": "sparse",
+      "target_category": "sparse",
+      "matrix_hash": "390a827c47e3947c76de80c6960280604ece733fab33ffb29e05cf05366144de"
+    },
+    {
+      "target_id": "T07",
+      "target_name": "dense",
+      "target_category": "dense",
+      "matrix_hash": "891e38f025695319889375029cbabdf29a626ac61aa6a8c3f019766a5e52f9a7"
+    },
+    {
+      "target_id": "T08",
+      "target_name": "asymmetric",
+      "target_category": "asymmetrical",
+      "matrix_hash": "b106a5085bf761135da94ee2f697854b9fec713a799e80069e83e3473bac5db9"
+    }
+  ],
+  "payloads": [
+    {
+      "payload": "a",
+      "payload_utf8_bytes": 1
+    },
+    {
+      "payload": "g.co",
+      "payload_utf8_bytes": 4
+    },
+    {
+      "payload": "abcdefg",
+      "payload_utf8_bytes": 7
+    }
+  ],
+  "ecc_levels": [
+    "L",
+    "M",
+    "Q",
+    "H"
+  ],
+  "configuration_count": 96,
+  "robust_criterion": "A3_ROBUST = highest tested A3 candidate with synthetic both-exact rate >= 0.95 x the A1 baseline rate for the same configuration",
+  "environment": {
+    "node": "v22.12.0",
+    "os": "win32 10.0.26200",
+    "jsqr_version": "1.4.0",
+    "opencv_version": "see validation/validate_opencv.py",
+    "runner": "node tests/run-generalization.js"
+  },
+  "success_definition": "decoded payload === expected payload; physical data explicitly NOT fabricated",
+  "notes": ""
+}

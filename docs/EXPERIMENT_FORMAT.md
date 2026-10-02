@@ -39,9 +39,17 @@ Rules:
 - **Do not commit large binary sets** without a reason. If candidate PNGs are numerous,
   commit the ones referenced from `results.csv` and record how the rest were generated.
 
-`A1/` is **not created yet**. It will be created by the next implementation phase. Creating
-it now would be an empty scaffold that invites being filled in without the experiment
-actually being designed.
+`A1/`, `A2/`, `A3/` and `A4/` now exist
+([`../experiments/route-a/A1/`](../experiments/route-a/A1/README.md),
+[`../experiments/route-a/A2/`](../experiments/route-a/A2/README.md),
+[`../experiments/route-a/A3/`](../experiments/route-a/A3/README.md),
+[`../experiments/route-a/A4/`](../experiments/route-a/A4/README.md)) and follow this convention:
+`README.md`, `js/`, `tests/`, `validation/`, `targets/`, `outputs/`, and `results/`. A1/A2 export
+`results.csv` + `manifest.json`; A2 adds `budget_summary.csv`; A3 adds `clean_results.csv`,
+`strategy_comparison.csv`, `codeword_budget_results.csv`, robustness CSVs, and
+`synthetic_test_manifest.json`; A4 adds `generalization_*.csv`, `operating_points.csv`,
+`generalization_summary.json`, `dataset_manifest.json`, and physical summaries. Later
+experiments create their own directories when they are designed, not before.
 
 ---
 
@@ -161,10 +169,10 @@ candidate_file
 
 `qr_penalty_total` is what the standard mask-selection rule minimises. Reporting only the
 total would hide which rule drove the choice — and Route A's whole question is whether a
-*different* mask than the standard choice can look better while remaining valid. Rule 3 in
-this implementation is an approximation (see
-[`QR_V1_TECHNICAL_NOTES.md`](QR_V1_TECHNICAL_NOTES.md#rule-3--finder-like-pattern-lines-360366)),
-so per-rule values are also needed to avoid comparing them against another
+*different* mask than the standard choice can look better while remaining valid. Rule 3 was
+dead code until A4.0 corrected it (see
+[`../experiments/route-a/A4/BUG_AUDIT.md`](../experiments/route-a/A4/BUG_AUDIT.md)), so
+per-rule values are also needed to avoid comparing them against another
 implementation's totals without that caveat.
 
 ### Why `decoded_payload` is recorded even on failure
@@ -201,7 +209,7 @@ Decode **rates** are computed by aggregating this table, not by hand. A transfor
 described by its name *and* its parameters; `transformation = "blur"` with no parameters is
 not a reproducible row.
 
-### Physical camera experiments (A5)
+### Physical camera experiments (A4.2)
 
 Additional columns, because the conditions are not fully controlled and must be recorded:
 

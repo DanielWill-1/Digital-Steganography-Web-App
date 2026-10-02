@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A4 — Physical Test Recorder</title>
+<style>
+  :root { --bg:#f6f8fa; --panel:#fff; --border:#d0d7de; --text:#1f2328; --muted:#59636e; --accent:#0969da; --good:#1a7f37; --bad:#cf222e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:1180px; margin:0 auto; padding:20px; }
+  h1 { font-size:20px; margin:0 0 6px; } h2 { font-size:15px; margin:0 0 10px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:16px; }
+  label { display:block; color:var(--muted); font-size:12px; margin-bottom:4px; }
+  input, select, textarea { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font:inherit; background:#fff; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:9px 14px; font:inherit; font-weight:600; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--text); border:1px solid var(--border); font-weight:500; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+  th, td { text-align:left; padding:5px 7px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:600; }
+  .note { color:var(--muted); font-size:12px; } .good { color:var(--good); } .bad { color:var(--bad); }
+  #video { width:100%; max-width:360px; background:#000; border-radius:8px; }
+  .status { font-size:12px; color:var(--muted); margin-top:6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>A4 — Physical Test Recorder</h1>
+  <p class="note">Logs screen/print/camera scan attempts. Nothing is uploaded; the draft is kept in
+  this browser's localStorage and the exported files are the authoritative record.</p>
+
+  <section class="panel">
+    <h2>New trial</h2>
+    <div class="grid" id="form"></div>
+    <div class="actions">
+      <button id="add">Add trial</button>
+      <button id="clear" class="secondary">Clear session</button>
+    </div>
+    <p class="status" id="status"></p>
+  </section>
+
+  <section class="panel">
+    <h2>Session</h2>
+    <p class="note" id="sessionInfo"></p>
+    <div class="actions">
+      <button id="exportCsv" class="secondary">Export physical_trials.csv</button>
+      <button id="exportJson" class="secondary">Export physical_session.json</button>
+      <label class="secondary" style="display:inline-block;padding:8px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer">Import session…<input id="import" type="file" accept=".csv,.json" hidden></label>
+    </div>
+    <div id="tables"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Live camera (optional; needs HTTPS or localhost, and camera permission)</h2>
+    <div class="actions">
+      <button id="camStart" class="secondary">Start camera</button>
+      <button id="camStop" class="secondary">Stop camera</button>
+      <button id="camScan" class="secondary">Scan one frame (jsQR)</button>
+    </div>
+    <video id="video" playsinline muted hidden></video>
+    <p class="status" id="camStatus">Camera idle.</p>
+  </section>
+</main>
+
+<script src="../../../../third_party/jsQR/jsQR.min.js"></script>
+<script src="../../A1/js/export-results.js"></script>
+<script src="../js/physical-session.js"></script>
+<script>
+(function () {
+  const S = globalThis.StegoA4;
+  const A1 = globalThis.StegoA1;
+  const KEY = 'stegoA4.physical.session';
+
+  const FIELDS = [
+    ['candidate_id', 'text', 'A4_T01_a_H_packed_b16'], ['target', 'text', 'T01 circle'],
+    ['payload', 'text', 'g.co'], ['ecc', 'select', ['L', 'M', 'Q', 'H']],
+    ['strategy', 'select', ['A1_BASE', 'A2_RANDOM', 'A3_PACKED', 'A3_CODEWORD_BUDGET']],
+    ['medium', 'select', ['screen', 'print']], ['device', 'text', 'PHONE_A'],
+    ['scanner_app', 'text', 'native camera'], ['symbol_size', 'text', '40mm / 406px'],
+    ['display_px', 'text', ''], ['distance_mm', 'text', ''], ['symbol_width_mm', 'text', ''],
+    ['angle_deg', 'text', '0'], ['lighting', 'select', ['bright indoor', 'normal indoor', 'dim indoor']],
+    ['attempt', 'text', '1'], ['decode_status', 'select', S.DECODE_STATUSES],
+    ['decoded_payload', 'text', ''], ['notes', 'text', ''],
+  ];
+
+  const els = {};
+  const form = document.getElementById('form');
+  for (const [name, type, extra] of FIELDS) {
+    const wrap = document.createElement('div');
+    const label = document.createElement('label');
+    label.textContent = name;
+    label.htmlFor = 'f_' + name;
+    wrap.appendChild(label);
+    let field;
+    if (type === 'select') {
+      field = document.createElement('select');
+      for (const option of extra) { const o = document.createElement('option'); o.value = option; o.textContent = option; field.appendChild(o); }
+    } else {
+      field = document.createElement('input');
+      field.type = 'text';
+      if (extra) field.placeholder = extra;
+    }
+    field.id = 'f_' + name;
+    wrap.appendChild(field);
+    form.appendChild(wrap);
+    els[name] = field;
+  }
+
+  let session = S.createSession();
+  function load() {
+    try { const raw = localStorage.getItem(KEY); if (raw) session = S.fromJson(raw); } catch (e) { /* ignore */ }
+  }
+  function save() { try { localStorage.setItem(KEY, S.toJson(session)); } catch (e) { /* ignore */ } }
+
+  function setStatus(msg, cls) { const s = document.getElementById('status'); s.textContent = msg; s.className = 'status ' + (cls || ''); }
+
+  function render() {
+    document.getElementById('sessionInfo').textContent = `session ${session.session_id} · ${session.trials.length} trials`;
+    const trials = session.trials;
+    if (!trials.length) { document.getElementById('tables').innerHTML = '<p class="note">No trials yet.</p>'; return; }
+    let html = '<table><tr><th>candidate</th><th>medium</th><th>device</th><th>size</th><th>angle</th><th>light</th><th>attempt</th><th>status</th><th>decoded</th></tr>';
+    for (const t of trials) html += `<tr><td>${t.candidate_id}</td><td>${t.medium}</td><td>${t.device}</td><td>${t.symbol_size}</td><td>${t.angle_deg}</td><td>${t.lighting}</td><td>${t.attempt}</td><td>${t.decode_status}</td><td>${t.decoded_payload || ''}</td></tr>`;
+    html += '</table>';
+    const summary = S.summarizeTrials(trials);
+    html += '<table><tr><th>condition</th><th>attempts</th><th>exact</th><th>rate</th><th>Wilson 95%</th><th>wrong</th><th>no-detect</th></tr>';
+    for (const row of summary) {
+      html += `<tr><td>${row.candidateId} · ${row.medium} · ${row.device} · ${row.symbolSize} · ${row.angleDeg}° · ${row.lighting}</td><td>${row.attemptCount}</td><td>${row.exactCount}</td><td>${(row.exactRate * 100).toFixed(0)}%</td><td>${row.wilsonLow === null ? 'n/a' : `[${(row.wilsonLow * 100).toFixed(0)}%, ${(row.wilsonHigh * 100).toFixed(0)}%]`}</td><td>${row.wrongPayloadCount}</td><td>${row.noDetectionCount}</td></tr>`;
+    }
+    html += '</table>';
+    document.getElementById('tables').innerHTML = html;
+  }
+
+  document.getElementById('add').addEventListener('click', () => {
+    const trial = {};
+    for (const [name] of FIELDS) trial[name] = els[name].value;
+    trial.payload_bytes = A1.utf8ByteLength(trial.payload || '');
+    trial.timestamp = new Date().toISOString();
+    trial.session_id = session.session_id;
+    const check = S.validateTrial(trial);
+    if (!check.ok) { setStatus('Not added: ' + check.errors.join('; '), 'bad'); return; }
+    S.addTrial(session, trial);
+    save();
+    render();
+    setStatus('Trial added.', 'good');
+    // Keep metadata fields, advance attempt number.
+    els.attempt.value = String(Number(els.attempt.value) + 1 || 1);
+    els.decode_status.value = 'EXACT';
+    els.decoded_payload.value = '';
+  });
+
+  document.getElementById('clear').addEventListener('click', () => {
+    if (!confirm('Clear the current session? Export first if needed.')) return;
+    session = S.createSession();
+    save(); render(); setStatus('Session cleared.', '');
+  });
+  document.getElementById('exportCsv').addEventListener('click', () => A1.downloadText('physical_trials.csv', S.toCsv(session), 'text/csv'));
+  document.getElementById('exportJson').addEventListener('click', () => A1.downloadText('physical_session.json', S.toJson(session), 'application/json'));
+  document.getElementById('import').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    file.text().then((text) => {
+      session = file.name.endsWith('.json') ? S.fromJson(text) : S.fromCsv(text, 'imported');
+      save(); render(); setStatus(`Imported ${session.trials.length} trials.`, 'good');
+    });
+  });
+
+  // Optional live camera scanning.
+  let stream = null;
+  const video = document.getElementById('video');
+  const camStatus = document.getElementById('camStatus');
+  function stopCamera() {
+    if (stream) { for (const track of stream.getTracks()) track.stop(); stream = null; }
+    video.hidden = true;
+    camStatus.textContent = 'Camera stopped.';
+  }
+  document.getElementById('camStart').addEventListener('click', async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camStatus.textContent = 'Camera API unavailable (needs a secure context: HTTPS or localhost).'; return; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream; video.hidden = false; await video.play();
+      camStatus.textContent = 'Camera running.';
+    } catch (error) { camStatus.textContent = 'Camera error: ' + error.message; stopCamera(); }
+  });
+  document.getElementById('camStop').addEventListener('click', stopCamera);
+  document.getElementById('camScan').addEventListener('click', () => {
+    if (typeof jsQR === 'undefined') { camStatus.textContent = 'jsQR not loaded (check third_party/jsQR).'; return; }
+    if (!stream) { camStatus.textContent = 'Start the camera first.'; return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    const result = jsQR(data.data, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
+    camStatus.textContent = result ? 'Decoded: ' + result.data : 'No QR detected in this frame.';
+  });
+  window.addEventListener('beforeunload', stopCamera);
+
+  load(); render();
+})();
+</script>
+</body>
+</html>

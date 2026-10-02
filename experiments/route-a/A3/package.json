@@ -1,0 +1,11 @@
+{
+  "name": "stegocode-route-a-a3",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Experiment A3 — Codeword-aware logo optimization + synthetic robustness. Test-only configuration: declares ES modules for Node. No runtime dependencies.",
+  "scripts": {
+    "test": "node tests/run-tests.js",
+    "run:default": "node tests/run-default-experiment.js"
+  }
+}

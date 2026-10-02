@@ -1,0 +1,6 @@
+name: jsQR
+version: 1.4.0
+license: Apache-2.0
+source: https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js
+downloaded: 2026-10-02
+sha256: 32214c74ee92d37de6d88276987690d996ce757668e82ca1709dba5e0be9fcce

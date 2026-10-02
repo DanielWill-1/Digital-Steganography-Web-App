@@ -1,7 +1,9 @@
 # Route A — Standards-Compatible Artistic QR
 
-**Status: active route. `A0` is a baseline requirement; `A1` is the next implementation
-milestone and is NOT STARTED.**
+**Status: active route. `A1`–`A3` are COMPLETE and frozen. `A4` is software implemented: its
+foundation audit (which fixed the Rule-3 penalty bug), its 96-configuration generalization, and
+its physical-testing tooling are done. Physical validation is PENDING real data, so Route A is
+NOT YET COMPLETE.**
 
 ---
 
@@ -63,56 +65,36 @@ ambiguous instruction.
 ## Experiment roadmap
 
 Order is not negotiable. See the ordering rules in
-[`RESEARCH_ROADMAP.md`](RESEARCH_ROADMAP.md).
+[`RESEARCH_ROADMAP.md`](RESEARCH_ROADMAP.md). The roadmap is intentionally compressed:
 
 ```text
-A0
-→ A1
-→ A2
-→ A3
-→ A4
-→ A5
-→ A6
-→ A7
-→ A8
+A1   baseline ECC/mask visual study                     ✅ complete (control)
+→ A2  controlled target-directed modification            ✅ implemented
+→ A3  codeword-aware optimization + synthetic robustness
+→ A4  multi-logo + physical validation + final analysis
 ```
+
+`A0` (freeze and validate the encoder) is historical baseline validation, not a separate
+active experiment.
 
 ---
 
-## A0 — Freeze and validate the current Version 1 encoder
+## A0 — Freeze and validate the current Version 1 encoder (historical)
 
-**Purpose:** establish a trustworthy baseline before any artistic modification.
-
-Verify:
-
-- Version 1 matrix dimensions.
-- payload encoding.
-- ECC generation.
-- mask generation.
-- format information.
-- capacity enforcement.
-- independent decoding.
-- existing tests.
-
-No optimisation yet. No module modification yet.
-
-`A0` is a validation milestone, not a feature milestone. If the encoder is found to be
-wrong in some respect, that is `A0`'s finding and it must be recorded before `A1` builds
-on it.
-
-**Partial evidence already exists.** The documentation pass that produced this file
-verified the encoder against the specification using an independent harness (see
-[`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md#verified-capabilities)). That
-harness was deliberately kept out of the repository and is not a substitute for `A0`:
-`A0` requires a repeatable, in-project validation procedure with recorded output, plus
-independent decoder confirmation.
+**Status: historical.** The encoder was validated during the documentation pass against the
+specification using an out-of-repository harness (see
+[`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md#verified-capabilities)), and `A1`'s test suite now
+provides a repeatable, in-project version of several of those checks (role counts, format
+consistency, capacity, penalty regressions). No module modification happens here.
 
 ---
 
 ## A1 — Mask/ECC visual-similarity baseline
 
-**This is the NEXT IMPLEMENTATION EXPERIMENT. It must not be implemented during the
-documentation phase.**
+**Status: COMPLETE — frozen as the control baseline.** The experiment lives in
+[`../experiments/route-a/A1/`](../experiments/route-a/A1/README.md); that README is the
+authoritative record of the method, metrics, and default-run result. This section remains
+the specification. A1 must not be retrofitted with any A2 modification logic.
 
 ### Research question
 
@@ -327,198 +309,169 @@ been matched well".
 
 ## A2 — Controlled target-directed module modification
 
+**Status: IMPLEMENTED.** The experiment lives in
+[`../experiments/route-a/A2/`](../experiments/route-a/A2/README.md); that README is the
+authoritative record. This section remains the specification.
+
 **Research question:**
 
-> How many carefully selected target-directed modifications can be introduced before
-> decoding begins to fail?
+> How much can selected non-function modules of a valid Version 1 QR symbol be changed
+> toward a target logo before reliable decoding begins to fail?
 
-Begin changing QR modules toward the target image.
+Begin changing QR modules toward the target image, using a **deterministic seeded** ordering
+that is deliberately *not* an optimiser — A3 changes where modifications go.
 
-**Do not change mandatory structural modules.**
+**Do not change mandatory structural modules.** Only `DATA`, `ECC`, and `REMAINDER` modules
+may change, and only where `Q != T`.
 
 Measure:
 
-- module changes,
-- visual improvement,
-- affected codewords,
-- decode success,
-- decoder confidence where measurable.
+- module changes (`actual_modified_modules`, `modified_fraction_of_eligible`),
+- visual improvement (`similarity_before/after/gain`),
+- affected codewords (`affected_codeword_count`, `max_flips_in_single_codeword`, …),
+- decode success, kept separate as `EXACT` / `WRONG_PAYLOAD` / `NO_DETECTION` /
+  `DECODER_ERROR`.
 
-The purpose is to empirically locate the visual/readability boundary — the point at which
-a symbol stops being a QR code in any useful sense. That boundary is the single most
-valuable result this route can produce, whether or not it is ever exceeded.
+The purpose is to empirically locate the visual/readability boundary — the point at which a
+symbol stops being a QR code in any useful sense. That is the single most valuable result
+this route can produce.
+
+Default run (`g.co`, synthetic circle, base A1-H-M6): 85 trials; jsQR and OpenCV both 33/85
+exact with identical curves; first observed failure at budget 10, sustained failure from
+budget 16. Budget 0 is bit-for-bit identical to the A1 base.
 
 ---
 
-## A3 — Codeword-aware optimization
+## A3 — Codeword-aware optimization + synthetic robustness
+
+**Status: IMPLEMENTED.** The experiment lives in
+[`../experiments/route-a/A3/`](../experiments/route-a/A3/README.md); that README is the
+authoritative record. This section remains the specification.
+
+Default run: A3 reaches the A2 similarity at every budget while affecting roughly a quarter
+to a fifth of the codewords; A2 fails from ~budget 13 while A3 decodes exactly to budget 40
+(58.50% similarity, 7 codewords) under both jsQR and OpenCV. The synthetic robustness suite
+(925 cases) is recorded separately; A3 makes no physical-robustness claim.
 
 **Important research insight:**
 
 QR Reed–Solomon repair operates over codeword symbols, not over an abstract count of
-changed visual modules.
-
-Therefore:
+changed visual modules. Therefore:
 
 ```text
 number of module flips
 ```
 
-is not sufficient.
-
-Track:
+is not sufficient. Track:
 
 ```text
 affected Reed–Solomon codewords
 ```
 
-as well.
+as well. `A2` already records per-trial codeword damage for exactly this reason.
 
 Two candidates may modify different numbers of visible modules but affect radically
 different numbers of protected symbols. Flipping two modules that fall inside the same
 codeword costs one codeword of error budget; flipping two modules in two different
 codewords costs two. A naive module-count metric treats those as identical.
 
-A future optimiser should therefore consider:
-
-> Where can the available error-correction budget create the greatest target-image
-> improvement?
-
-This becomes a constrained optimisation problem: maximise visual similarity subject to
-the number of corrupted Reed–Solomon codewords staying within what the chosen ECC level
-can repair.
+A3 therefore changes *where* modifications go: prefer positions that increase visual
+similarity while minimising damaging codeword distribution, rather than A2's seeded order.
+This becomes a constrained optimisation problem — maximise visual similarity subject to the
+number of corrupted Reed–Solomon codewords staying within what the chosen ECC level can
+repair.
 
 Note that the relationship between modules and codewords is not local — a codeword's eight
 bits are scattered across the matrix by the QR placement pattern, so visual proximity and
 error-budget proximity are unrelated.
 
----
-
-## A4 — Synthetic robustness testing
+### Synthetic robustness (consolidated from the former A4)
 
 Test generated candidates under controlled transformations:
 
-- scaling,
-- downscaling,
-- rotation,
-- blur,
-- Gaussian noise,
-- contrast changes,
-- brightness changes,
+- scaling, downscaling, rotation,
+- blur, Gaussian noise,
+- contrast and brightness changes,
 - JPEG compression,
-- perspective distortion,
-- partial obstruction,
-- uneven illumination simulation.
+- perspective distortion, partial obstruction, uneven illumination.
 
 Record decoding **rates** rather than anecdotal success. Every transformation needs its
 parameters recorded exactly — "blurred" is not a transformation, "Gaussian blur, σ = 1.4"
 is.
 
-The purpose is to find out whether the visual optimisation has traded away margin that
-would have been needed in the real world. A candidate that is 3% more similar and 40%
-less robust under mild blur is a worse symbol, not a better one.
+The purpose is to find out whether the visual optimisation has traded away margin that would
+have been needed in the real world. A candidate that is 3% more similar and 40% less robust
+under mild blur is a worse symbol, not a better one.
 
 ---
 
-## A5 — Physical camera testing
+## A4 — Multi-target + physical validation + final analysis
 
-Move from synthetic testing to:
+**Status: SOFTWARE IMPLEMENTED; physical data PENDING.** The experiment lives in
+[`../experiments/route-a/A4/`](../experiments/route-a/A4/README.md); that README, plus
+[`../experiments/route-a/A4/BUG_AUDIT.md`](../experiments/route-a/A4/BUG_AUDIT.md) and
+[`ROUTE_A_FINAL_REPORT.md`](ROUTE_A_FINAL_REPORT.md), are the authoritative records.
 
-- phone screens,
-- printed symbols,
-- camera capture,
-- different angles,
-- different distances,
-- different lighting,
-- different devices.
+A4.0 audited the foundations (finding and fixing the Rule-3 penalty bug), A4.1 ran a
+96-configuration generalization (8 targets × 3 payloads × 4 ECC) in which A3 reaches a
+both-decoder-exact operating point in 96/96 configurations and outperforms A2 at 94/96 matched
+budgets, and A4.2 provides the screen/print/recorder tooling. A4.3 generates the final
+tables. **Physical results do not exist yet and are not fabricated.**
 
-Results must distinguish:
+A4 consolidates the final Route A evaluation: multi-target generalization, physical validation,
+and the cross-experiment analysis.
+
+### Multi-logo evaluation
+
+Test multiple target classes — simple letters, geometric logos, circular logos, sparse and
+dense logos, monochrome logos, and multicolour logos after binary normalisation — and
+determine whether some classes are fundamentally more compatible with QR geometry. The
+theoretical similarity ceiling from `A1` is what makes this fair: targets can be ranked by
+how much headroom QR geometry leaves them, which is a property of the target, not of any
+particular method.
+
+### Physical / camera validation
+
+Move from synthetic testing to phone screens, printed symbols, camera capture, and
+variation in angle, distance, lighting, and device. Results must keep these two claims
+separate and never merge them:
 
 ```text
 digital image decoding
-```
-
-from:
-
-```text
 camera / physical decoding
 ```
 
-These are different claims. A symbol that decodes flawlessly from a PNG and fails from a
-photograph of a phone screen has failed, and the result must say so.
+A symbol that decodes flawlessly from a PNG and fails from a photograph of a phone screen
+has failed, and the result must say so. Physical conditions are inherently less reproducible
+than synthetic ones, so each capture must record device, distance, angle, lighting, and
+whether the display was a screen or paper.
 
-Camera testing is inherently less reproducible than synthetic testing, so each capture
-must record device, distance, angle, lighting conditions, and whether the display was a
-screen or paper.
+### Comparison with existing artistic QR approaches
 
----
+A literature review is required for any novelty claim, and it has not been done. The
+techniques in this space are long-established and well-published; the honest expectation is
+that this route reproduces known trade-offs with its own measurements rather than
+discovering new ones.
 
-## A6 — Logo-aware optimization algorithm
+### Final Route A analysis
 
-Only after `A1`–`A5` establish measurable behaviour should a serious optimisation
-algorithm be developed.
-
-Potential objective:
-
-```text
-visual similarity
-+
-QR structural validity
-+
-decode robustness
-+
-ECC / error-budget awareness
-```
-
-The weights in that sum are an empirical question, and `A3` is what makes answering it
-possible.
-
-**Do not prematurely introduce ML or generative methods before establishing deterministic
-baselines.** A gradient-free search over the error budget is the expected first
-implementation. Anything learned comes after, if at all.
-
----
-
-## A7 — Multi-logo evaluation
-
-Test multiple target classes such as:
-
-- simple letters,
-- geometric logos,
-- circular logos,
-- sparse logos,
-- dense logos,
-- monochrome logos,
-- multicolour logos after binary normalisation.
-
-Evaluate whether some types of logos are fundamentally more compatible with QR geometry.
-
-This is where the theoretical similarity ceiling from `A1` pays off: targets can be ranked
-by how much headroom QR geometry leaves them, which is a property of the target rather
-than of any particular optimiser.
-
----
-
-## A8 — Comparison with existing artistic QR approaches
-
-Only after internal experiments are reproducible should StegoCode compare its approach
-against existing aesthetic/artistic QR methods.
-
-A literature review is required. It is not optional, and it has not been done.
-
-**Do not claim novelty before performing that review.** The techniques used in this space
-are long-established and well-published; the honest expectation is that this route
-reproduces known trade-offs with its own measurements rather than discovering new ones.
+Compare the A1 baseline, the A2 seeded modification, and the A3 codeword-aware method across
+the multi-logo and physical results, and state what the measurements do and do not support.
+An optimiser with a stated objective function (visual similarity + structural validity +
+decode robustness + error-budget awareness) is only justified here if A1–A3 make the
+trade-off weights answerable. Do not prematurely introduce ML or generative methods.
 
 ---
 
 ## Relationship with the current implementation
 
 - The baseline is `qr_app copy.html`, which contains the in-repo Version 1 encoder.
-- `A0` validates that encoder; `A1` uses it unchanged to generate all 32 candidates.
+- `A1` uses that encoder via a faithful port (the application is not modified) to generate
+  all 32 candidates; `A2` builds on A1's base candidates and shared modules.
 - No experiment modifies `qr_app copy.html`. Experiments are separate artefacts under
   `experiments/route-a/`.
-- `qr_app.html` (the `qrcodejs` page) is not part of Route A. It cannot serve as a
-  baseline because it does not expose the mask or the matrix.
+- `qr_app.html` (the `qrcodejs` page) is not part of Route A. It cannot serve as a baseline
+  because it does not expose the mask or the matrix.
 
 ---
 
@@ -528,4 +481,4 @@ reproduces known trade-offs with its own measurements rather than discovering ne
 - 208 mutable modules is a small search space, and the error budget is smaller still.
 - Immutable structure is 53% of the symbol and cannot be optimised.
 - Digital decodability is not camera decodability.
-- No novelty claim is available until `A8`.
+- No novelty claim is available before the A4 literature comparison.

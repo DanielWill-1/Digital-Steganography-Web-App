@@ -72,12 +72,13 @@ as such; where it is simply not yet built, it is marked as such.
 These are documented, not fixed. They do not affect the verified behaviour of the current
 output but should be known before extending the code.
 
-- **Mask penalty rule 3 is a close approximation, not a literal transcription.** The
-  implementation searches each line for the 7-module pattern `1011101` and adds 40 when
-  four light modules precede or follow it. A literal reading of the specification's
-  1:1:3:1:1-with-four-light rule can count an occurrence differently when light runs
-  exist on both sides. The practical effect on mask selection is small, but it is a
-  deviation from a literal implementation.
+- **Mask penalty rule 3 fires correctly but is a documented reading of the rule.** The
+  implementation searches each line for the 7-module pattern `1011101` and adds 40 when four
+  light modules precede or follow it. A4.0 fixed a bug where the surrounding-light test
+  (`bit === 0` on booleans) never matched, making Rule 3 dead code; it now fires. It still
+  counts an occurrence once even when light runs exist on both sides, a deliberate reading
+  of the specification's 1:1:3:1:1-with-four-light rule. See
+  [`../experiments/route-a/A4/BUG_AUDIT.md`](../experiments/route-a/A4/BUG_AUDIT.md).
 - **Mask penalty is computed over the whole matrix**, including function modules. This
   matches the specification, but means the penalty is not a measure of the data region
   alone.
@@ -158,23 +159,29 @@ failure.
 
 ## Project-wide
 
-- **No tests exist in the repository.** There is no test directory, no test runner, and no
-  CI. The verification performed during the documentation pass was done with an external,
-  throwaway harness that is deliberately not part of the deliverable.
-- **No build tooling, no package manifest, no dependency pinning beyond CDN URLs.**
-- **Two external CDN dependencies** create a supply-chain and availability dependency for
-  the QR pages. `stego_app.html` has none.
+- **The three applications have no in-project automated tests.** The Route A experiments under
+  `experiments/route-a/A1`–`A4`, however, each ship a Node test suite (`node tests/run-tests.js`).
+- **No build tooling for the applications.** The applications are single self-contained HTML
+  files. The experiment directories carry a test-only `package.json` (ESM config, no runtime
+  dependencies).
+- **External dependencies.** `qr_app.html` loads `qrcodejs` from a CDN; `qr_app copy.html` and
+  the A1–A3 pages load `jsQR` from a CDN. A4 pins `jsQR` 1.4.0 under `third_party/jsQR/`
+  (offline / `file://`), and A1–A4 also support a local `jsQR` for tests.
 - **No versioning scheme for the applications.** The only version marker is
-  `FORMAT_VERSION = 1` inside the LSB packet format and `FORMAT_VERSION`-style constants
-  in the QR format bits. Neither identifies the application itself.
+  `FORMAT_VERSION = 1` inside the LSB packet format and format-version constants in the QR
+  format bits. Neither identifies the application itself.
 - **No cryptography.** No encryption, no signatures, no authentication, no key handling.
   A hidden payload is hidden, not protected: anyone who knows the format can read it.
-- **No machine learning, no generative methods, no optimiser.** None is planned before the
-  deterministic Route A baselines exist.
+- **A deterministic optimiser exists; machine learning does not.** Route A's A3 introduces a
+  deterministic, decoder-independent codeword-aware placement strategy. There is no machine
+  learning, no generative method, and no decoder-feedback optimisation, and none is planned
+  before the deterministic baselines are established.
 - **No literature review has been performed.** No novelty is claimed for any part of this
-  project, and none should be claimed before `A8`.
-- **A1 does not exist.** There is no target-logo optimiser, no similarity metric
-  implementation, no role map, and no OpenCV validation pipeline in the repository.
+  project, and none should be claimed without a formal comparison.
+- **Route A is not physically validated.** A1–A4 software and synthetic results exist, but no
+  real screen/print/camera data has been collected, so no physical-robustness claim is made.
+  Route B is planned, not implemented; Route C has a working LSB baseline but its robust
+  research (C2–C3) is planned.
 
 ---
 

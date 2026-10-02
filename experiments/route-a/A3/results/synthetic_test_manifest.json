@@ -1,0 +1,206 @@
+{
+  "experiment": "A3",
+  "description": "Deterministic synthetic degradations; transformed PNGs are shared by jsQR and OpenCV.",
+  "presets": [
+    {
+      "id": "PRISTINE",
+      "family": "pristine",
+      "params": {}
+    },
+    {
+      "id": "RESIZE_8",
+      "family": "resize",
+      "params": {
+        "module_pitch": 8,
+        "interpolation": "area-downscale"
+      }
+    },
+    {
+      "id": "RESIZE_6",
+      "family": "resize",
+      "params": {
+        "module_pitch": 6,
+        "interpolation": "area-downscale"
+      }
+    },
+    {
+      "id": "RESIZE_4",
+      "family": "resize",
+      "params": {
+        "module_pitch": 4,
+        "interpolation": "area-downscale"
+      }
+    },
+    {
+      "id": "RESIZE_3",
+      "family": "resize",
+      "params": {
+        "module_pitch": 3,
+        "interpolation": "area-downscale"
+      }
+    },
+    {
+      "id": "RESIZE_2",
+      "family": "resize",
+      "params": {
+        "module_pitch": 2,
+        "interpolation": "area-downscale"
+      }
+    },
+    {
+      "id": "BLUR_50",
+      "family": "blur",
+      "params": {
+        "blur_sigma": 0.5
+      }
+    },
+    {
+      "id": "BLUR_100",
+      "family": "blur",
+      "params": {
+        "blur_sigma": 1.0
+      }
+    },
+    {
+      "id": "BLUR_150",
+      "family": "blur",
+      "params": {
+        "blur_sigma": 1.5
+      }
+    },
+    {
+      "id": "BLUR_200",
+      "family": "blur",
+      "params": {
+        "blur_sigma": 2.0
+      }
+    },
+    {
+      "id": "JPEG_95",
+      "family": "jpeg",
+      "params": {
+        "jpeg_quality": 95
+      }
+    },
+    {
+      "id": "JPEG_85",
+      "family": "jpeg",
+      "params": {
+        "jpeg_quality": 85
+      }
+    },
+    {
+      "id": "JPEG_70",
+      "family": "jpeg",
+      "params": {
+        "jpeg_quality": 70
+      }
+    },
+    {
+      "id": "JPEG_50",
+      "family": "jpeg",
+      "params": {
+        "jpeg_quality": 50
+      }
+    },
+    {
+      "id": "JPEG_30",
+      "family": "jpeg",
+      "params": {
+        "jpeg_quality": 30
+      }
+    },
+    {
+      "id": "ROT_M10",
+      "family": "rotation",
+      "params": {
+        "angle_deg": -10,
+        "background": "white",
+        "canvas": "expanded"
+      }
+    },
+    {
+      "id": "ROT_M5",
+      "family": "rotation",
+      "params": {
+        "angle_deg": -5,
+        "background": "white",
+        "canvas": "expanded"
+      }
+    },
+    {
+      "id": "ROT_M2",
+      "family": "rotation",
+      "params": {
+        "angle_deg": -2,
+        "background": "white",
+        "canvas": "expanded"
+      }
+    },
+    {
+      "id": "ROT_P2",
+      "family": "rotation",
+      "params": {
+        "angle_deg": 2,
+        "background": "white",
+        "canvas": "expanded"
+      }
+    },
+    {
+      "id": "ROT_P5",
+      "family": "rotation",
+      "params": {
+        "angle_deg": 5,
+        "background": "white",
+        "canvas": "expanded"
+      }
+    },
+    {
+      "id": "ROT_P10",
+      "family": "rotation",
+      "params": {
+        "angle_deg": 10,
+        "background": "white",
+        "canvas": "expanded"
+      }
+    },
+    {
+      "id": "PERSP_02",
+      "family": "perspective",
+      "params": {
+        "magnitude": 0.02,
+        "variant": "quad",
+        "background": "white"
+      }
+    },
+    {
+      "id": "PERSP_05",
+      "family": "perspective",
+      "params": {
+        "magnitude": 0.05,
+        "variant": "quad",
+        "background": "white"
+      }
+    },
+    {
+      "id": "PERSP_08",
+      "family": "perspective",
+      "params": {
+        "magnitude": 0.08,
+        "variant": "quad",
+        "background": "white"
+      }
+    },
+    {
+      "id": "PERSP_12",
+      "family": "perspective",
+      "params": {
+        "magnitude": 0.12,
+        "variant": "quad",
+        "background": "white"
+      }
+    }
+  ],
+  "case_count": 925,
+  "note": "Pristine is always included. Transforms are applied in isolation, not combined."
+}

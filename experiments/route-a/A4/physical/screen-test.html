@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A4 — Screen Test</title>
+<style>
+  :root { --bg:#f6f8fa; --panel:#fff; --border:#d0d7de; --text:#1f2328; --muted:#59636e; --accent:#0969da; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:1000px; margin:0 auto; padding:20px; }
+  h1 { font-size:20px; margin:0 0 6px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:16px; }
+  label { display:block; color:var(--muted); font-size:12px; margin-bottom:4px; }
+  input, select { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font:inherit; background:#fff; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:9px 16px; font:inherit; font-weight:600; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--text); border:1px solid var(--border); font-weight:500; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
+  .row > div { flex:1 1 180px; }
+  .stage { background:#fff; border:1px solid var(--border); border-radius:10px; padding:24px; margin-top:16px; text-align:center; }
+  #qr { image-rendering: pixelated; background:#fff; }
+  .meta { color:var(--muted); font-size:13px; margin-top:12px; }
+  .runtime { font-weight:600; }
+  .note { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>A4 — Screen Test</h1>
+  <p class="note">Displays exactly one QR candidate at a controlled size with no smoothing. Load a
+  candidate PNG from <code>outputs/gen/</code> (e.g. <code>A4_T01_a_H_packed_b16.png</code>).</p>
+
+  <section class="panel">
+    <div class="row">
+      <div>
+        <label for="file">Candidate PNG</label>
+        <input id="file" type="file" accept="image/png">
+      </div>
+      <div>
+        <label for="size">Display size (QR + 4-module quiet zone each side)</label>
+        <select id="size">
+          <option value="290">small — 290 px</option>
+          <option value="406" selected>medium — 406 px</option>
+          <option value="580">large — 580 px</option>
+          <option value="812">extra — 812 px</option>
+        </select>
+      </div>
+      <div>
+        <label for="candidate">Candidate ID</label>
+        <input id="candidate" type="text" placeholder="A4_T01_a_H_packed_b16">
+      </div>
+      <div style="flex:0 0 auto">
+        <button id="fullscreen" class="secondary">Fullscreen</button>
+      </div>
+    </div>
+    <p class="meta" id="measure">Load a candidate to see exact display dimensions.</p>
+  </section>
+
+  <div class="stage" id="stage">
+    <img id="qr" alt="QR candidate" hidden>
+    <p class="note" id="placeholder">No candidate loaded.</p>
+  </div>
+
+  <p class="note">Metadata is shown outside the symbol only; nothing is drawn over the quiet zone.
+  Record distance, angle, lighting, and brightness in the physical-test recorder.</p>
+</main>
+
+<script>
+(function () {
+  const els = {
+    file: document.getElementById('file'),
+    size: document.getElementById('size'),
+    candidate: document.getElementById('candidate'),
+    measure: document.getElementById('measure'),
+    stage: document.getElementById('stage'),
+    qr: document.getElementById('qr'),
+    placeholder: document.getElementById('placeholder'),
+    fullscreen: document.getElementById('fullscreen'),
+  };
+  let objectUrl = null;
+
+  function update() {
+    const total = Number(els.size.value); // image is 29 modules wide
+    const modulePx = total / 29;
+    els.qr.style.width = total + 'px';
+    els.qr.style.height = total + 'px';
+    els.measure.textContent =
+      `Display: ${total}×${total} px · module pitch ${modulePx.toFixed(2)} px/module (QR + quiet zone) · ` +
+      `QR area ≈ ${(modulePx * 21).toFixed(1)} px · candidate: ${els.candidate.value || '(none)'}`;
+  }
+
+  els.file.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(file);
+    els.qr.src = objectUrl;
+    els.qr.hidden = false;
+    els.placeholder.hidden = true;
+    if (!els.candidate.value) els.candidate.value = file.name.replace(/\.png$/i, '');
+    update();
+  });
+  els.size.addEventListener('change', update);
+  els.candidate.addEventListener('input', update);
+  els.fullscreen.addEventListener('click', () => {
+    if (!document.fullscreenElement) els.stage.requestFullscreen && els.stage.requestFullscreen();
+    else document.exitFullscreen && document.exitFullscreen();
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>

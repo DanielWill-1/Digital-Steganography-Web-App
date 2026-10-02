@@ -1,2 +1,59 @@
+# --- Scratch / historical notes ---
 todo.md
 *\todo.md
+prompt.md
+
+# --- Command Code session workspace (agent state, not project content) ---
+/.commandcode
+.commandcode/
+
+# --- OS junk ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Editors / IDEs ---
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Logs / temporary files ---
+*.log
+*.tmp
+*.temp
+
+# --- Generated experiment output images (large, regenerable; see each experiment README) ---
+/experiments/route-a/A1/outputs/
+/experiments/route-a/A2/outputs/
+/experiments/route-a/A3/outputs/
+/experiments/route-a/A4/outputs/
+
+# --- Regenerable robustness intermediate (large) ---
+**/results/robustness_cases.json

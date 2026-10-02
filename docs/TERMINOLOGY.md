@@ -117,7 +117,7 @@ budget.
 **Immutable / function module**
 A module whose value is fixed by QR structure: finder, separator, timing, format
 information, and the fixed dark module. Changing one does not degrade readability
-gracefully; it breaks the symbol's definition. `A1`–`A6` must never modify these.
+gracefully; it breaks the symbol's definition. No Route A experiment may modify these.
 
 **Payload**
 The actual data being carried. In this project the payload is UTF-8 text. In the LSB
@@ -179,5 +179,6 @@ Applying controlled, reproducible transformations to a generated symbol in softw
 opposed to capturing it with a camera. Repeatable and parameterisable; `A4`.
 
 **Physical camera testing**
-Capturing a symbol from a screen or print with a real camera under real conditions; `A5`.
-Results from `A4` and `A5` must never be merged.
+Capturing a symbol from a screen or print with a real camera under real conditions; this is
+Route A's A4.2 phase (physical validation), whose data is still pending. Digital/synthetic and
+physical results must never be merged.

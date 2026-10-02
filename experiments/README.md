@@ -1,13 +1,14 @@
 # Experiments
 
-Research workspace for StegoCode. **This directory contains structure only. No experiment
-has been run, and no result exists.**
+Research workspace for StegoCode. **Route A's experiments `A1`–`A4` are implemented; `A1`–`A3` are
+frozen, and `A4` is software-complete with physical validation pending. The other routes contain
+structure only.**
 
 The three subdirectories correspond to the three research routes:
 
 | Directory | Route | Status |
 | :--- | :--- | :--- |
-| `route-a/` | Standards-compatible artistic QR | Active route. `A1` is next and **not started**. |
+| `route-a/` | Standards-compatible artistic QR | Active route. `A1`–`A3` complete (frozen); `A4` software implemented, physical validation **PENDING**. |
 | `route-b/` | Custom logo-readable optical code | Planned. No implementation, no design decisions. |
 | `route-c/` | Image steganography | Existing implementation (the LSB codec); research directions all future work. |
 
@@ -19,7 +20,11 @@ The three subdirectories correspond to the three research routes:
 experiments/
 ├── README.md          this file
 ├── route-a/
-│   ├── README.md      route goal, status, planned experiments, metrics, limitations
+│   ├── README.md      route goal, status, experiments, metrics, limitations
+│   ├── A1/            baseline experiment (control)
+│   ├── A2/            seeded modification experiment
+│   ├── A3/            codeword-aware optimization + synthetic robustness
+│   ├── A4/            generalization + physical tooling + final analysis
 │   └── results/       (empty — placeholder)
 ├── route-b/
 │   ├── README.md
@@ -29,13 +34,10 @@ experiments/
     └── results/       (empty — placeholder)
 ```
 
-Each `results/` directory is empty by design. It exists so that results have an obvious
-home the moment an experiment produces them, rather than being scattered at the repository
-root.
-
-**No experiment directory (`A1/`, `A2/`, …) has been created.** Creating them now would
-produce empty scaffolds that invite being filled in without the experiment actually being
-designed. The next implementation phase creates `A1/`.
+Each route's `results/` directory exists so results have an obvious home. A1–A4 keep their recorded
+evidence inside their own directories (CSVs + `manifest.json`, plus A3's clean/strategy/codeword
+and robustness CSVs and A4's generalization/operating-point/robustness/dataset files, and
+`outputs/*.png`). The route-level `results/` directories remain placeholders.
 
 ---
 

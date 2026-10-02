@@ -97,12 +97,17 @@ StegoCode/
 │   ├── QR_V1_TECHNICAL_NOTES.md
 │   ├── STEGANOGRAPHY_TECHNICAL_NOTES.md
 │   ├── EXPERIMENT_FORMAT.md
-│   └── AGENT_CONTEXT.md
+│   ├── AGENT_CONTEXT.md
+│   └── ROUTE_A_FINAL_REPORT.md   (STATUS: physical validation pending)
 │
-└── experiments/               Research workspace (structure only; no experiments run yet)
+└── experiments/               Research workspace
     ├── README.md
     ├── route-a/
     │   ├── README.md
+    │   ├── A1/                baseline experiment: UI, js modules, tests, validation, results
+    │   ├── A2/                modification experiment: UI, js modules, tests, validation, results
+    │   ├── A3/                codeword-aware optimization + synthetic robustness
+    │   ├── A4/                generalization + physical tooling + final analysis
     │   └── results/.gitkeep
     ├── route-b/
     │   ├── README.md
@@ -191,10 +196,12 @@ See [`TERMINOLOGY.md`](TERMINOLOGY.md) for the definitions this project uses, an
 ## Current status
 
 ```text
-Current route: Route A
-Current stage: documentation / research foundation
-Next experiment: A1 — Mask/ECC Visual Similarity Baseline
-A1 implementation status: NOT STARTED
+Current route: Route A (A1 → A2 → A3 → A4)
+Current stage: A4 software implemented; generalization complete; physical validation PENDING
+Current experiment: A4 — Multi-Target Generalization + Physical Validation + Final Analysis
+Current experiment status: implemented (physical data not yet collected)
+Next step: collect physical screen / print / camera trials
+Route A status: NOT YET COMPLETE (physical validation pending)
 ```
 
 The immediate long-term research direction:

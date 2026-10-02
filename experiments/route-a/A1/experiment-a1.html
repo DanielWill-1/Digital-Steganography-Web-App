@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A1 — Mask/ECC Visual Similarity Baseline</title>
+<style>
+  :root {
+    --bg: #f6f8fa;
+    --panel: #ffffff;
+    --panel-2: #f2f5f9;
+    --border: #d0d7de;
+    --border-strong: #afb8c1;
+    --text: #1f2328;
+    --muted: #59636e;
+    --accent: #0969da;
+    --accent-ink: #ffffff;
+    --good: #1a7f37;
+    --bad: #cf222e;
+    --warn: #9a6700;
+    --shadow: 0 1px 2px rgba(31, 35, 40, 0.06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header { background: var(--panel); border-bottom: 1px solid var(--border); }
+  header .inner, main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  h3 { font-size: 12px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  p { margin: 0 0 10px; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin-top: 14px; }
+  .meta-grid div { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  .meta-grid span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-top: 16px; box-shadow: var(--shadow); }
+  .row { display: flex; flex-wrap: wrap; gap: 20px; }
+  .col { flex: 1 1 320px; min-width: 280px; }
+  label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  textarea, input[type="text"], select {
+    width: 100%; background: var(--panel); color: var(--text); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 8px 10px; font: inherit;
+  }
+  textarea { resize: vertical; min-height: 58px; }
+  textarea:focus, select:focus, input:focus { outline: 2px solid rgba(9, 105, 218, 0.35); outline-offset: 1px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .error { color: var(--bad); }
+  .success { color: var(--good); font-weight: 600; }
+  button {
+    background: var(--accent); color: var(--accent-ink); border: 1px solid transparent; border-radius: 8px;
+    padding: 9px 16px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:hover:not(:disabled) { filter: brightness(0.95); }
+  button.secondary { background: var(--panel); color: var(--text); border-color: var(--border-strong); font-weight: 500; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  .target-preview { background: #fff; border: 1px solid var(--border); border-radius: 6px; width: 210px; height: 210px; image-rendering: pixelated; }
+  .source-preview { max-width: 210px; max-height: 210px; background: #fff; border: 1px solid var(--border); border-radius: 6px; }
+  .preview-row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .preview-row figure { margin: 0; }
+  figcaption { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; margin-top: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; box-shadow: var(--shadow); }
+  .card.top { border-color: var(--good); box-shadow: 0 0 0 2px rgba(26, 127, 55, 0.15); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .card-head strong { font-size: 14px; }
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--muted); white-space: nowrap; }
+  .badge.good { color: var(--good); border-color: var(--good); background: rgba(26, 127, 55, 0.08); }
+  .badge.bad { color: var(--bad); border-color: var(--bad); background: rgba(207, 34, 46, 0.08); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); background: rgba(154, 103, 0, 0.08); }
+  .qr-thumb { width: 100%; max-width: 190px; height: auto; image-rendering: pixelated; display: block; margin: 10px 0; background: #fff; border: 1px solid var(--border); border-radius: 6px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 12px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .card .actions { margin-top: 10px; }
+  .card .actions button { padding: 5px 11px; font-size: 12px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 10px; }
+  .summary-grid div { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+  .summary-grid span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+  ol.interpretation { margin: 0; padding-left: 20px; }
+  ol.interpretation li { margin-bottom: 7px; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 26px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .toolbar select { width: auto; }
+</style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <h1>A1 — Mask/ECC Visual Similarity Baseline</h1>
+    <p class="hint" style="margin:0">A measurement, not an optimisation. Every candidate is a fully valid
+    Version 1 QR symbol; no QR module is modified toward the target.</p>
+    <div class="meta-grid">
+      <div><span>Route</span>A</div>
+      <div><span>Experiment</span>A1</div>
+      <div><span>Name</span>Mask/ECC Visual Similarity Baseline</div>
+      <div><span>QR version</span>1 (21 × 21)</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>1. Payload</h2>
+    <label for="payload">Payload (UTF-8, byte mode)</label>
+    <textarea id="payload" spellcheck="false">g.co</textarea>
+    <div class="hint" id="payloadInfo">UTF-8 bytes: 4</div>
+    <div style="margin-top:14px">
+      <h3>Version 1 capacity</h3>
+      <table id="capacityTable"></table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. Target</h2>
+    <div class="row">
+      <div class="col">
+        <label for="targetSource">Target source</label>
+        <select id="targetSource"></select>
+        <input id="targetFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <p class="hint">Built-in targets are defined in code so the default experiment is
+        reproducible without a binary fixture. Uploaded images are normalised with the
+        same deterministic pipeline.</p>
+        <p class="hint" id="normalizationInfo"></p>
+        <p class="hint error" id="targetError"></p>
+      </div>
+      <div class="col">
+        <div class="preview-row">
+          <figure id="sourceFigure" hidden>
+            <img id="sourcePreview" class="source-preview" alt="Uploaded target source">
+            <figcaption>Uploaded source (as loaded)</figcaption>
+          </figure>
+          <figure>
+            <canvas id="targetPreview" class="target-preview" width="210" height="210"></canvas>
+            <figcaption>Normalised 21 × 21 target (nearest-neighbour, dark = module 1)</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Run</h2>
+    <div class="actions">
+      <button id="runButton">Run experiment (all supported ECC × mask)</button>
+      <button id="exportJson" class="secondary" disabled>Export manifest.json</button>
+      <button id="exportCsv" class="secondary" disabled>Export results.csv</button>
+      <button id="downloadAll" class="secondary" disabled>Download all candidate PNGs</button>
+    </div>
+    <p class="hint" id="runStatus"></p>
+  </section>
+
+  <section class="panel" id="summaryPanel" hidden>
+    <h2>4. Summary</h2>
+    <div class="summary-grid" id="summaryGrid"></div>
+  </section>
+
+  <section class="panel" id="interpretationPanel" hidden>
+    <h2>5. Research interpretation</h2>
+    <ol class="interpretation" id="interpretation"></ol>
+    <p class="hint">These statements are derived only from this run's measurements. A single
+    target does not support a general claim about any mask.</p>
+  </section>
+
+  <section class="panel" id="resultsPanel" hidden>
+    <h2>6. Candidates</h2>
+    <div class="toolbar">
+      <label for="sortSelect" style="margin:0">Sort by</label>
+      <select id="sortSelect">
+        <option value="fullSimilarity">Highest full similarity (default)</option>
+        <option value="mutableSimilarity">Highest mutable similarity</option>
+        <option value="fixedConflicts">Fewest fixed conflicts</option>
+        <option value="qrPenalty">Lowest QR penalty</option>
+        <option value="ecc">ECC level</option>
+        <option value="mask">Mask</option>
+      </select>
+      <span class="hint" id="topLabel" style="margin:0"></span>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+</main>
+
+<footer>
+  Works directly from the filesystem as well as over a local server. Uses jsQR 1.4.0 (CDN)
+  for decoding. Nothing is uploaded; all processing is local.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="./js/qr-role-map.js"></script>
+<script src="./js/qr-experiment.js"></script>
+<script src="./js/metrics.js"></script>
+<script src="./js/target-grid.js"></script>
+<script src="./js/export-results.js"></script>
+<script src="./js/experiment-runner.js"></script>
+<script>
+(function () {
+  const {
+    capacityReport, payloadFits, utf8ByteLength, renderTargetToImageData,
+    syntheticTarget, imageDataToTargetMatrix, loadImageFileToImageData,
+    normalizationMetadata, SYNTHETIC_TARGET_LABELS, TARGET_SIZE,
+    runExperiment, jsQrDecoder, sortCandidates,
+    buildCsv, buildManifest, downloadText, downloadImagePng, imageDataToCanvas,
+  } = globalThis.StegoA1;
+
+  const els = {
+    payload: document.getElementById('payload'),
+    payloadInfo: document.getElementById('payloadInfo'),
+    capacityTable: document.getElementById('capacityTable'),
+    targetSource: document.getElementById('targetSource'),
+    targetFile: document.getElementById('targetFile'),
+    targetError: document.getElementById('targetError'),
+    normalizationInfo: document.getElementById('normalizationInfo'),
+    sourceFigure: document.getElementById('sourceFigure'),
+    sourcePreview: document.getElementById('sourcePreview'),
+    targetPreview: document.getElementById('targetPreview'),
+    runButton: document.getElementById('runButton'),
+    runStatus: document.getElementById('runStatus'),
+    exportJson: document.getElementById('exportJson'),
+    exportCsv: document.getElementById('exportCsv'),
+    downloadAll: document.getElementById('downloadAll'),
+    summaryPanel: document.getElementById('summaryPanel'),
+    summaryGrid: document.getElementById('summaryGrid'),
+    interpretationPanel: document.getElementById('interpretationPanel'),
+    interpretation: document.getElementById('interpretation'),
+    resultsPanel: document.getElementById('resultsPanel'),
+    sortSelect: document.getElementById('sortSelect'),
+    topLabel: document.getElementById('topLabel'),
+    cards: document.getElementById('cards'),
+  };
+
+  let targetMatrix = null;
+  let targetMeta = null;
+  let lastRun = null;
+
+  function setStatus(message, type) {
+    els.runStatus.textContent = message;
+    els.runStatus.className = 'hint' + (type ? ' ' + type : '');
+  }
+
+  function updatePayload() {
+    const bytes = utf8ByteLength(els.payload.value);
+    els.payloadInfo.textContent = 'UTF-8 bytes: ' + bytes;
+    els.payloadInfo.className = 'hint' + (bytes === 0 ? ' error' : '');
+    renderCapacity();
+  }
+
+  function renderCapacity() {
+    const report = capacityReport(els.payload.value);
+    const rows = report.map((entry) => {
+      const status = entry.supported
+        ? '<span class="success">supported</span>'
+        : '<span class="error">skipped — ' + entry.reason + '</span>';
+      return '<tr><td>' + entry.eccLevel + '</td><td>' + entry.maxBytes + '</td><td>' + status + '</td></tr>';
+    });
+    els.capacityTable.innerHTML =
+      '<tr><th>Level</th><th>Max bytes</th><th>Status for this payload</th></tr>' + rows.join('');
+  }
+
+  function setTargetFromSource() {
+    els.targetError.textContent = '';
+    const source = els.targetSource.value;
+    if (source === 'upload') {
+      els.targetFile.click();
+      return;
+    }
+    targetMatrix = syntheticTarget(source);
+    targetMeta = Object.assign({}, normalizationMetadata(TARGET_SIZE), {
+      source: 'synthetic',
+      synthetic_target: source,
+      synthetic_description: SYNTHETIC_TARGET_LABELS[source] || source,
+    });
+    els.sourceFigure.hidden = true;
+    drawTargetPreview();
+    showNormalizationInfo();
+  }
+
+  function handleFile(file) {
+    els.targetError.textContent = '';
+    if (!file) return;
+    loadImageFileToImageData(file).then((imageData) => {
+      targetMatrix = imageDataToTargetMatrix(imageData, { size: TARGET_SIZE });
+      targetMeta = Object.assign({}, normalizationMetadata(TARGET_SIZE), {
+        source: 'upload',
+        source_file: file.name,
+        source_width: imageData.width,
+        source_height: imageData.height,
+      });
+      els.sourcePreview.src = URL.createObjectURL(file);
+      els.sourceFigure.hidden = false;
+      drawTargetPreview();
+      showNormalizationInfo();
+    }).catch((error) => {
+      targetMatrix = null;
+      els.targetError.textContent = error.message;
+      els.sourceFigure.hidden = true;
+      showNormalizationInfo();
+    });
+  }
+
+  function drawTargetPreview() {
+    const context = els.targetPreview.getContext('2d');
+    if (!targetMatrix) {
+      context.clearRect(0, 0, els.targetPreview.width, els.targetPreview.height);
+      return;
+    }
+    const image = renderTargetToImageData(targetMatrix, 10);
+    els.targetPreview.width = image.width;
+    els.targetPreview.height = image.height;
+    context.putImageData(new ImageData(image.data, image.width, image.height), 0, 0);
+  }
+
+  function showNormalizationInfo() {
+    if (!targetMeta) { els.normalizationInfo.textContent = ''; return; }
+    const m = targetMeta;
+    els.normalizationInfo.textContent =
+      'Fit: ' + m.fit_method + '. Grayscale: ' + m.grayscale_method + '. Downsample: ' +
+      m.downsample_method + '. Threshold: ' + m.threshold_method +
+      '. Matrix convention: ' + m.matrix_convention + '.';
+  }
+
+  function run() {
+    els.targetError.textContent = '';
+    const payload = els.payload.value;
+    if (!payload) {
+      setStatus('Enter a payload first. An empty payload is rejected to match the QR Studio behaviour.', 'error');
+      return;
+    }
+    if (!targetMatrix) {
+      els.targetError.textContent = 'A target image is required. Choose a built-in target or upload an image.';
+      return;
+    }
+    if (!payloadFits(payload, 'L')) {
+      setStatus('Payload exceeds even Version 1-L capacity; no candidates can be generated.', 'error');
+      return;
+    }
+    const hasDecoder = typeof window.jsQR !== 'undefined';
+    if (!hasDecoder) {
+      setStatus('jsQR could not load (check the network/CDN). The run will continue without jsQR validation.', 'error');
+    }
+
+    els.runButton.disabled = true;
+    setStatus('Running…');
+    const decode = hasDecoder ? jsQrDecoder(window.jsQR) : null;
+    runExperiment({
+      payload: payload,
+      target: targetMatrix,
+      targetMeta: targetMeta,
+      decode: decode,
+      runId: 'A1-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-1',
+      environment: {
+        userAgent: navigator.userAgent,
+        jsqrVersion: hasDecoder ? '1.4.0' : null,
+        runner: 'browser experiment-a1.html',
+        decoders: [
+          { name: 'jsQR', version: '1.4.0', role: 'browser decoder' },
+          { name: 'OpenCV QRCodeDetector', version: 'see validation/validate_opencv.py', role: 'independent decoder' },
+        ],
+      },
+    }).then((result) => {
+      lastRun = result;
+      if (lastRun.candidates.length === 0) {
+        setStatus('No candidates generated — the payload fits no ECC level at Version 1.', 'error');
+      } else {
+        const s = lastRun.summary;
+        setStatus('Generated ' + s.candidatesGenerated + '/' + s.candidatesExpected +
+          ' candidates; jsQR exact decode ' + s.jsqrSuccessful +
+          (decode ? '' : ' (decoder unavailable)') + '.', 'success');
+      }
+      renderSummary();
+      renderInterpretation();
+      renderCards();
+      const hasCandidates = lastRun.candidates.length > 0;
+      els.exportJson.disabled = !hasCandidates;
+      els.exportCsv.disabled = !hasCandidates;
+      els.downloadAll.disabled = !hasCandidates;
+      els.summaryPanel.hidden = !hasCandidates;
+      els.interpretationPanel.hidden = !hasCandidates;
+      els.resultsPanel.hidden = !hasCandidates;
+    }).catch((error) => {
+      setStatus('Run failed: ' + error.message, 'error');
+    }).then(() => {
+      els.runButton.disabled = false;
+    });
+  }
+
+  function describeBest(candidate, value, integer) {
+    if (!candidate) return 'n/a';
+    const v = value(candidate);
+    return candidate.eccLevel + ' / mask ' + candidate.mask + '<br>' +
+      (integer ? v : (v * 100).toFixed(2) + '%');
+  }
+
+  function renderSummary() {
+    const s = lastRun.summary;
+    const card = (label, value) => '<div><span>' + label + '</span>' + value + '</div>';
+    const std = Object.keys(s.standardMaskByEcc)
+      .map((ecc) => ecc + ' → mask ' + s.standardMaskByEcc[ecc]).join(', ') || 'n/a';
+    const skipped = s.candidatesSkipped
+      ? s.candidatesSkipped + ' (' + s.skippedReasons.map((r) => r.eccLevel).join(', ') + ')'
+      : '0';
+    els.summaryGrid.innerHTML = [
+      card('Candidates expected', s.candidatesExpected),
+      card('Candidates generated', s.candidatesGenerated),
+      card('Skipped due to capacity', skipped),
+      card('jsQR exact decode', s.jsqrSuccessful + ' / ' + s.candidatesGenerated),
+      card('jsQR failures', s.jsqrFailed),
+      card('Highest logo similarity (full)', describeBest(s.highestFullSimilarity, (c) => c.metrics.fullSimilarity)),
+      card('Highest mutable similarity', describeBest(s.highestMutableSimilarity, (c) => c.metrics.mutableSimilarity)),
+      card('Lowest standard QR penalty', describeBest(s.lowestQrPenalty, (c) => c.penalties.total, true)),
+      card('Standard-selected mask per ECC', std),
+    ].join('');
+  }
+
+  function renderInterpretation() {
+    const s = lastRun.summary;
+    const lines = [];
+    const best = s.highestFullSimilarity;
+    if (best) {
+      lines.push('Highest full similarity (' + (best.metrics.fullSimilarity * 100).toFixed(2) + '%) was obtained by ' + best.eccLevel + ' / mask ' + best.mask + '.');
+      const standard = s.standardMaskByEcc[best.eccLevel];
+      lines.push('The standard minimum-penalty mask for ' + best.eccLevel + ' was mask ' + standard + '.');
+      lines.push(best.mask === standard
+        ? 'For ' + best.eccLevel + ' the visually closest candidate at this target was also the mask chosen by the standard readability-oriented penalty function.'
+        : 'Therefore the visually closest candidate for ' + best.eccLevel + ' was not the mask selected by the standard readability-oriented penalty function.');
+      if (best.metrics.theoreticalCeiling > best.metrics.fullSimilarity) {
+        lines.push('This target\u2019s structural ceiling is ' + (best.metrics.theoreticalCeiling * 100).toFixed(2) + '%; ordinary ECC and mask choice reached ' + (best.metrics.fullSimilarity * 100).toFixed(2) + '% of full-matrix agreement.');
+      }
+    }
+    const mutable = s.highestMutableSimilarity;
+    if (mutable) {
+      lines.push('Highest mutable-region similarity (over the 208 data/ECC modules) was ' + (mutable.metrics.mutableSimilarity * 100).toFixed(2) + '% by ' + mutable.eccLevel + ' / mask ' + mutable.mask + '.');
+    }
+    if (s.candidatesSkipped > 0) {
+      lines.push(s.candidatesSkipped + ' ECC level' + (s.candidatesSkipped === 1 ? '' : 's') + ' skipped because the payload exceeded Version 1 capacity.');
+    }
+    els.interpretation.innerHTML = lines.map((line) => '<li>' + line + '</li>').join('');
+  }
+
+  function renderCards() {
+    const key = els.sortSelect.value;
+    const sorted = sortCandidates(lastRun.candidates, key);
+    const top = sorted[0];
+    els.topLabel.textContent = top
+      ? 'Top item here: ' + top.candidateId + ' — different metrics mean different objectives.'
+      : '';
+    els.cards.innerHTML = '';
+    for (const candidate of sorted) els.cards.appendChild(buildCard(candidate, top, key));
+  }
+
+  function buildCard(candidate, top, sortKey) {
+    const card = document.createElement('div');
+    card.className = 'card' + (candidate === top && sortKey === 'fullSimilarity' ? ' top' : '');
+    const m = candidate.metrics;
+    const p = candidate.penalties;
+    const jsqrBadge = candidate.jsqrPayloadCorrect === null
+      ? '<span class="badge">jsQR: n/a</span>'
+      : candidate.jsqrPayloadCorrect
+        ? '<span class="badge good">jsQR: PASS</span>'
+        : candidate.jsqrDetected
+          ? '<span class="badge bad">jsQR: wrong payload</span>'
+          : '<span class="badge bad">jsQR: not detected</span>';
+    const stdBadge = candidate.standardSelectedMask
+      ? '<span class="badge warn">standard-selected</span>'
+      : '';
+    card.innerHTML =
+      '<div class="card-head"><strong>' + candidate.candidateId + '</strong>' +
+      '<span>' + jsqrBadge + ' ' + stdBadge + '</span></div>' +
+      '<div class="kv">' +
+        '<span>ECC</span><span>' + candidate.eccLevel + '</span>' +
+        '<span>Mask</span><span>' + candidate.mask + '</span>' +
+        '<span>Full similarity</span><span>' + (m.fullSimilarity * 100).toFixed(2) + '%</span>' +
+        '<span>Mutable similarity</span><span>' + (m.mutableSimilarity * 100).toFixed(2) + '%</span>' +
+        '<span>Fixed conflicts</span><span>' + m.fixedConflicts + ' / ' + m.fixedModuleCount + '</span>' +
+        '<span>Theoretical ceiling</span><span>' + (m.theoreticalCeiling * 100).toFixed(2) + '%</span>' +
+        '<span>Ceiling gap</span><span>' + (m.ceilingGap * 100).toFixed(2) + '%</span>' +
+      '</div>' +
+      '<h3 style="margin-top:12px">QR penalties</h3>' +
+      '<div class="kv">' +
+        '<span>R1</span><span>' + p.rule1 + '</span>' +
+        '<span>R2</span><span>' + p.rule2 + '</span>' +
+        '<span>R3</span><span>' + p.rule3 + '</span>' +
+        '<span>R4</span><span>' + p.rule4 + '</span>' +
+        '<span>Total</span><span>' + p.total + '</span>' +
+      '</div>' +
+      '<div class="card-actions"></div>';
+
+    const canvas = imageDataToCanvas(candidate.image);
+    canvas.className = 'qr-thumb';
+    canvas.setAttribute('aria-label', candidate.candidateId + ' QR candidate');
+    card.querySelector('.card-head').after(canvas);
+
+    const actions = card.querySelector('.card-actions');
+    actions.className = 'actions';
+    const download = document.createElement('button');
+    download.textContent = 'Download PNG';
+    download.className = 'secondary';
+    download.addEventListener('click', () => downloadImagePng(candidate.filename, candidate.image));
+    actions.appendChild(download);
+    if (candidate.jsqrPayload !== null) {
+      const decoded = document.createElement('span');
+      decoded.className = 'hint';
+      decoded.style.alignSelf = 'center';
+      decoded.textContent = 'decoded: ' + JSON.stringify(candidate.jsqrPayload);
+      actions.appendChild(decoded);
+    }
+    return card;
+  }
+
+  function defaultTargetName() {
+    const source = els.targetSource.value;
+    return source === 'upload'
+      ? ((targetMeta && targetMeta.source_file) || 'upload')
+      : 'synthetic-' + source;
+  }
+
+  function exportJson() {
+    const manifest = buildManifest({
+      runId: lastRun.runId,
+      timestamp: lastRun.timestamp,
+      payload: lastRun.payload,
+      targetName: defaultTargetName(),
+      targetMeta: targetMeta,
+      candidates: lastRun.candidates,
+      environment: lastRun.environment,
+      moduleScale: lastRun.moduleScale,
+      quietZone: lastRun.quietZone,
+    });
+    downloadText('manifest.json', JSON.stringify(manifest, null, 2), 'application/json');
+  }
+
+  function exportCsv() {
+    const csv = buildCsv({
+      runId: lastRun.runId,
+      timestamp: lastRun.timestamp,
+      targetName: defaultTargetName(),
+      payload: lastRun.payload,
+      candidates: lastRun.candidates,
+    });
+    downloadText('results.csv', csv, 'text/csv');
+  }
+
+  function downloadAll() {
+    const candidates = lastRun.candidates;
+    let index = 0;
+    const next = () => {
+      if (index >= candidates.length) return;
+      downloadImagePng(candidates[index].filename, candidates[index].image);
+      index++;
+      setTimeout(next, 120);
+    };
+    next();
+  }
+
+  // Initialise.
+  els.targetSource.innerHTML = ['circle', 'ring', 'checkerboard', 'diagonal-cross', 'corner-blocks']
+    .map((name) => '<option value="' + name + '">Built-in: ' + (SYNTHETIC_TARGET_LABELS[name] || name) + '</option>')
+    .concat('<option value="upload">Upload image (PNG / JPEG / WebP)</option>')
+    .join('');
+
+  els.payload.addEventListener('input', updatePayload);
+  els.targetSource.addEventListener('change', () => {
+    if (els.targetSource.value === 'upload') els.targetFile.click();
+    else setTargetFromSource();
+  });
+  els.targetFile.addEventListener('change', (event) => handleFile(event.target.files[0]));
+  els.runButton.addEventListener('click', run);
+  els.sortSelect.addEventListener('change', renderCards);
+  els.exportJson.addEventListener('click', exportJson);
+  els.exportCsv.addEventListener('click', exportCsv);
+  els.downloadAll.addEventListener('click', downloadAll);
+
+  updatePayload();
+  setTargetFromSource();
+
+  window.A1 = { get lastRun() { return lastRun; }, get targetMatrix() { return targetMatrix; } };
+})();
+</script>
+</body>
+</html>

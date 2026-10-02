@@ -25,8 +25,11 @@ the baseline that the technical notes expand on:
 | `.gitignore` | `todo.md`, `*\todo.md` | 1 | yes |
 
 There is no JavaScript module file, no stylesheet file, no image asset, no library
-vendored into the repository, no test directory, and no build configuration. Every
-application is a single self-contained HTML file.
+vendored into the repository, and no build configuration. Every application is a single
+self-contained HTML file. (The `experiments/` workspace is separate: A1, A2, A3, and A4 each
+contain their own classic scripts, tests, and validation utilities, none of which the three
+applications depend on. The applications remain dependency-free apart from their CDN script
+tags.)
 
 Everything the applications need at runtime is either inline or loaded from a public CDN.
 

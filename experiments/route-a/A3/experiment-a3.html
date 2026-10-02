@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A3 — Codeword-Aware Logo Optimization</title>
+<style>
+  :root {
+    --bg:#f6f8fa; --panel:#ffffff; --panel-2:#f2f5f9; --border:#d0d7de; --border-strong:#afb8c1;
+    --text:#1f2328; --muted:#59636e; --accent:#0969da; --accent-ink:#fff; --good:#1a7f37; --bad:#cf222e; --warn:#9a6700;
+    --shadow:0 1px 2px rgba(31,35,40,0.06);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  header { background:var(--panel); border-bottom:1px solid var(--border); }
+  header .inner, main { max-width:1180px; margin:0 auto; padding:20px; }
+  h1 { font-size:20px; margin:0 0 4px; letter-spacing:-0.01em; }
+  h2 { font-size:15px; margin:0 0 12px; }
+  h3 { font-size:12px; margin:0 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
+  p { margin:0 0 10px; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:var(--panel-2); padding:1px 4px; border-radius:4px; }
+  .meta-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:8px; margin-top:14px; }
+  .meta-grid div { background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:13px; }
+  .meta-grid span { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:18px; margin-top:16px; box-shadow:var(--shadow); }
+  .row { display:flex; flex-wrap:wrap; gap:20px; }
+  .col { flex:1 1 320px; min-width:280px; }
+  label { display:block; color:var(--muted); font-size:12px; margin-bottom:4px; }
+  textarea, input[type="text"], select { width:100%; background:var(--panel); color:var(--text); border:1px solid var(--border-strong); border-radius:8px; padding:8px 10px; font:inherit; }
+  textarea { resize:vertical; min-height:58px; }
+  .hint { color:var(--muted); font-size:12px; margin-top:6px; }
+  .error { color:var(--bad); } .success { color:var(--good); font-weight:600; }
+  button { background:var(--accent); color:var(--accent-ink); border:1px solid transparent; border-radius:8px; padding:9px 16px; font:inherit; font-weight:600; cursor:pointer; }
+  button:hover:not(:disabled){ filter:brightness(0.95); }
+  button.secondary { background:var(--panel); color:var(--text); border-color:var(--border-strong); font-weight:500; }
+  button:disabled { opacity:0.45; cursor:not-allowed; }
+  .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:600; }
+  .target-preview { background:#fff; border:1px solid var(--border); border-radius:6px; width:210px; height:210px; image-rendering:pixelated; }
+  .source-preview { max-width:210px; max-height:210px; background:#fff; border:1px solid var(--border); border-radius:6px; }
+  .preview-row { display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+  .preview-row figure { margin:0; } figcaption { color:var(--muted); font-size:11px; margin-top:6px; }
+  .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(205px,1fr)); gap:10px; }
+  .summary-grid div { background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:12px; }
+  .summary-grid span { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; }
+  .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  .charts figure { margin:0; } .charts canvas { width:100%; height:auto; background:#fff; border:1px solid var(--border); border-radius:8px; }
+  .thumb { background:#fff; border:1px solid var(--border); border-radius:6px; width:150px; height:150px; image-rendering:pixelated; }
+  .legend { display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:8px; }
+  .legend i { display:inline-block; width:11px; height:11px; border:1px solid var(--border-strong); margin-right:4px; vertical-align:middle; }
+  .controls { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+  .controls > div { min-width:120px; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:3px 12px; font-size:12px; }
+  .kv span:nth-child(odd) { color:var(--muted); }
+  .cwbar { display:grid; grid-template-columns:70px 1fr 60px; gap:6px; align-items:center; font-size:11px; margin-bottom:2px; }
+  .cwbar .bar { background:var(--accent); height:10px; border-radius:2px; }
+  .cwbar.ecc .bar { background:var(--warn); }
+  footer { color:var(--muted); font-size:12px; text-align:center; padding:26px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <h1>A3 — Codeword-Aware Logo Optimization</h1>
+    <p class="hint" style="margin:0">Concentrate the same target-directed changes into fewer Reed–Solomon
+    codewords than A2's random placement, then test whether the advantage survives synthetic degradation.</p>
+    <div class="meta-grid">
+      <div><span>Route</span>A</div>
+      <div><span>Experiment</span>A3</div>
+      <div><span>Name</span>Codeword-aware optimization + synthetic robustness</div>
+      <div><span>QR version</span>1 (21 × 21)</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>1. Payload</h2>
+    <label for="payload">Payload (UTF-8, byte mode)</label>
+    <textarea id="payload" spellcheck="false">g.co</textarea>
+    <div class="hint" id="payloadInfo">UTF-8 bytes: 4</div>
+  </section>
+
+  <section class="panel">
+    <h2>2. Target</h2>
+    <div class="row">
+      <div class="col">
+        <label for="targetSource">Target source</label>
+        <select id="targetSource"></select>
+        <input id="targetFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <p class="hint">Identical normalisation to A1/A2, so all three experiments compare against the same target.</p>
+        <p class="hint" id="normalizationInfo"></p>
+        <p class="hint error" id="targetError"></p>
+      </div>
+      <div class="col">
+        <div class="preview-row">
+          <figure id="sourceFigure" hidden>
+            <img id="sourcePreview" class="source-preview" alt="Uploaded target source">
+            <figcaption>Uploaded source (as loaded)</figcaption>
+          </figure>
+          <figure>
+            <canvas id="targetPreview" class="target-preview" width="210" height="210"></canvas>
+            <figcaption>Normalised 21 × 21 target</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Base QR selection</h2>
+    <div class="row">
+      <div class="col">
+        <label for="baseMode">Base selection</label>
+        <select id="baseMode">
+          <option value="auto">Highest A1 full similarity</option>
+          <option value="bestPerEcc">Best per ECC (4 bases)</option>
+          <option value="manual">Manual ECC / mask</option>
+        </select>
+        <div id="manualBase" hidden style="margin-top:10px">
+          <div class="row">
+            <div class="col"><label for="manualEcc">ECC level</label><select id="manualEcc"></select></div>
+            <div class="col"><label for="manualMask">Mask</label><select id="manualMask"></select></div>
+          </div>
+        </div>
+        <p class="hint">A2 ran on the auto base; A3 uses the same base for the direct comparison.</p>
+      </div>
+      <div class="col">
+        <h3>Strategy comparison</h3>
+        <div class="kv">
+          <span>A2_RANDOM</span><span>seeded random order, seeds 42–46</span>
+          <span>A3_PACKED</span><span>codeword-packed, deterministic</span>
+        </div>
+        <h3 style="margin-top:12px">Module budgets</h3>
+        <p class="hint" id="budgetsInfo">Shown after a run (filtered against the eligible mismatch count).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>4. Run clean optimization</h2>
+    <div class="actions">
+      <button id="runButton">Run A3 clean optimization</button>
+      <button id="exportClean" class="secondary" disabled>clean_results.csv</button>
+      <button id="exportComparison" class="secondary" disabled>strategy_comparison.csv</button>
+      <button id="exportCodeword" class="secondary" disabled>codeword_budget_results.csv</button>
+      <button id="exportManifest" class="secondary" disabled>manifest.json</button>
+    </div>
+    <p class="hint" id="runStatus"></p>
+  </section>
+
+  <section class="panel" id="summaryPanel" hidden>
+    <h2>5. Clean summary</h2>
+    <div class="summary-grid" id="summaryGrid"></div>
+  </section>
+
+  <section class="panel" id="tablePanel" hidden>
+    <h2>6. A2 vs A3 by module budget</h2>
+    <table id="compareTable"></table>
+    <p class="hint" id="boundaryInfo"></p>
+  </section>
+
+  <section class="panel" id="chartPanel" hidden>
+    <h2>7. Frontiers</h2>
+    <div class="charts">
+      <figure>
+        <canvas id="chartCodewords" width="640" height="360"></canvas>
+        <figcaption>Affected codewords vs logo similarity (A2 vs A3)</figcaption>
+      </figure>
+      <figure>
+        <canvas id="chartBudget" width="640" height="360"></canvas>
+        <figcaption>Similarity and clean decode by budget</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="panel" id="inspectorPanel" hidden>
+    <h2>8. Inspector and codeword distribution</h2>
+    <div class="controls">
+      <div id="basePickWrap" hidden><label for="inspBase">Base</label><select id="inspBase"></select></div>
+      <div><label for="inspSeed">A2 seed</label><select id="inspSeed"></select></div>
+      <div><label for="inspBudget">Budget</label><select id="inspBudget"></select></div>
+    </div>
+    <div class="preview-row">
+      <figure><canvas class="thumb" id="insTarget" width="150" height="150"></canvas><figcaption>Target</figcaption></figure>
+      <figure><canvas class="thumb" id="insBase" width="150" height="150"></canvas><figcaption>A1 base</figcaption></figure>
+      <figure><canvas class="thumb" id="insA2" width="150" height="150"></canvas><figcaption>A2 random</figcaption></figure>
+      <figure><canvas class="thumb" id="insA3" width="150" height="150"></canvas><figcaption>A3 packed</figcaption></figure>
+      <figure><canvas class="thumb" id="insDiff" width="150" height="150"></canvas><figcaption>difference map (debug)</figcaption></figure>
+    </div>
+    <div class="legend">
+      <span><i style="background:#1a7f37"></i>modified toward target</span>
+      <span><i style="background:#cf222e"></i>remaining mismatch</span>
+      <span><i style="background:#ffffff"></i>already matching</span>
+      <span><i style="background:#d0d7de"></i>function module</span>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div class="col"><h3>A3 codeword distribution</h3><div id="cwDistribution"></div></div>
+      <div class="col"><div class="kv" id="inspMeta"></div></div>
+    </div>
+    <p class="hint">The difference map is debug-only; the QR submitted to decoders is always plain black/white.</p>
+  </section>
+
+  <section class="panel">
+    <h2>9. Synthetic robustness</h2>
+    <p class="hint">The synthetic degradation suite runs locally (Python + OpenCV, then jsQR):</p>
+    <p class="hint"><code>python validation/synthetic_robustness.py</code><br>
+    <code>set A1_JSQR_PATH=... &amp;&amp; node tests/run-robustness-jsqr.js</code></p>
+    <label for="robustnessFile">Load robustness_summary.csv to view results</label>
+    <input type="file" id="robustnessFile" accept=".csv">
+    <div id="robustnessWrap" hidden style="margin-top:12px">
+      <table id="robustnessTable"></table>
+      <div class="charts" style="margin-top:14px">
+        <figure>
+          <canvas id="chartRobust" width="640" height="360"></canvas>
+          <figcaption>Visual similarity vs synthetic both-decoder exact rate</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Works directly from the filesystem. Uses jsQR 1.4.0 (CDN) for the in-page clean decode;
+  OpenCV validation and the synthetic robustness suite are separate local Python steps.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="../A1/js/qr-role-map.js"></script>
+<script src="../A1/js/qr-experiment.js"></script>
+<script src="../A1/js/metrics.js"></script>
+<script src="../A1/js/target-grid.js"></script>
+<script src="../A1/js/export-results.js"></script>
+<script src="../A1/js/experiment-runner.js"></script>
+<script src="../A2/js/modification-strategy.js"></script>
+<script src="../A2/js/metrics-a2.js"></script>
+<script src="../A2/js/experiment-runner.js"></script>
+<script src="./js/codeword-optimizer.js"></script>
+<script src="./js/metrics-a3.js"></script>
+<script src="./js/strategy-comparison.js"></script>
+<script src="./js/robustness-summary.js"></script>
+<script src="./js/experiment-runner.js"></script>
+<script src="./js/export-results.js"></script>
+<script>
+(function () {
+  const A1 = globalThis.StegoA1;
+  const A2 = globalThis.StegoA2;
+  const A3 = globalThis.StegoA3;
+  const els = {};
+  ['payload','payloadInfo','targetSource','targetFile','targetError','normalizationInfo','sourceFigure','sourcePreview','targetPreview',
+   'baseMode','manualBase','manualEcc','manualMask','budgetsInfo','runButton','runStatus','exportClean','exportComparison','exportCodeword','exportManifest',
+   'summaryPanel','summaryGrid','tablePanel','compareTable','boundaryInfo','chartPanel','chartCodewords','chartBudget','inspectorPanel','basePickWrap',
+   'inspBase','inspSeed','inspBudget','insTarget','insBase','insA2','insA3','insDiff','cwDistribution','inspMeta','robustnessFile','robustnessWrap','robustnessTable','chartRobust']
+    .forEach((id) => { els[id] = document.getElementById(id); });
+
+  let targetMatrix = null;
+  let targetMeta = null;
+  let lastRun = null;
+  let robustnessRows = null;
+
+  function setStatus(message, type) { els.runStatus.textContent = message; els.runStatus.className = 'hint' + (type ? ' ' + type : ''); }
+  function matrixToCanvas(canvas, boolMatrix, scale) {
+    const image = A1.renderMatrixToImageData({ matrix: boolMatrix, moduleScale: scale || 7, quietZone: 0 });
+    canvas.width = image.width; canvas.height = image.height;
+    canvas.getContext('2d').putImageData(new ImageData(image.data, image.width, image.height), 0, 0);
+  }
+
+  function updatePayload() { els.payloadInfo.textContent = 'UTF-8 bytes: ' + A1.utf8ByteLength(els.payload.value); }
+  function setTargetFromSource() {
+    els.targetError.textContent = '';
+    const source = els.targetSource.value;
+    if (source === 'upload') { els.targetFile.click(); return; }
+    targetMatrix = A1.syntheticTarget(source);
+    targetMeta = Object.assign({}, A1.normalizationMetadata(21), { source: 'synthetic', synthetic_target: source });
+    els.sourceFigure.hidden = true;
+    matrixToCanvas(els.targetPreview, targetMatrix.map((r) => r.map((v) => v === 1)), 10);
+    showNormalizationInfo();
+  }
+  function handleFile(file) {
+    if (!file) return;
+    A1.loadImageFileToImageData(file).then((imageData) => {
+      targetMatrix = A1.imageDataToTargetMatrix(imageData, { size: 21 });
+      targetMeta = Object.assign({}, A1.normalizationMetadata(21), { source: 'upload', source_file: file.name });
+      els.sourcePreview.src = URL.createObjectURL(file);
+      els.sourceFigure.hidden = false;
+      matrixToCanvas(els.targetPreview, targetMatrix.map((r) => r.map((v) => v === 1)), 10);
+      showNormalizationInfo();
+    }).catch((error) => { targetMatrix = null; els.targetError.textContent = error.message; });
+  }
+  function showNormalizationInfo() {
+    if (!targetMeta) return;
+    els.normalizationInfo.textContent = 'Fit: ' + targetMeta.fit_method + '. Grayscale: ' + targetMeta.grayscale_method + '. Downsample: ' + targetMeta.downsample_method + '. Threshold: ' + targetMeta.threshold_method + '.';
+  }
+
+  function baseSelection() {
+    if (els.baseMode.value === 'bestPerEcc') return { mode: 'allEccWinners' };
+    if (els.baseMode.value === 'manual') return { mode: 'manual', eccLevel: els.manualEcc.value, mask: Number(els.manualMask.value) };
+    return { mode: 'auto' };
+  }
+
+  function run() {
+    const payload = els.payload.value;
+    if (!payload) { setStatus('Enter a payload first.', 'error'); return; }
+    if (!targetMatrix) { els.targetError.textContent = 'A target image is required.'; return; }
+    const hasDecoder = typeof window.jsQR !== 'undefined';
+    els.runButton.disabled = true;
+    setStatus('Running clean optimization…');
+    setTimeout(() => {
+      try {
+        lastRun = A3.runA3Clean({
+          payload, target: targetMatrix, targetMeta,
+          baseSelection: baseSelection(),
+          seeds: A2.DEFAULT_SEEDS,
+          budgetSchedule: A3.A3_BUDGET_SCHEDULE,
+          decode: hasDecoder ? A1.jsQrDecoder(window.jsQR) : null,
+          runId: 'A3-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-1',
+          environment: { userAgent: navigator.userAgent, jsqrVersion: hasDecoder ? '1.4.0' : null, runner: 'browser experiment-a3.html' },
+        });
+        renderAll();
+        setStatus('Clean run complete: ' + lastRun.summary.cleanCandidateCount + ' candidates; jsQR exact ' + lastRun.summary.jsqrExactCount + (hasDecoder ? '' : ' (decoder unavailable)') + '.', 'success');
+        for (const id of ['exportClean','exportComparison','exportCodeword','exportManifest']) els[id].disabled = false;
+        els.summaryPanel.hidden = false; els.tablePanel.hidden = false; els.chartPanel.hidden = false; els.inspectorPanel.hidden = false;
+        els.budgetsInfo.textContent = lastRun.budgets.join(', ') + ' (' + lastRun.budgets.length + ' budgets)';
+      } catch (error) {
+        setStatus('Run failed: ' + error.message, 'error');
+      } finally {
+        els.runButton.disabled = false;
+      }
+    }, 20);
+  }
+
+  function renderAll() { renderSummary(); renderTable(); renderCharts(); buildInspectorOptions(); renderInspector(); }
+  function card(label, value) { return '<div><span>' + label + '</span>' + value + '</div>'; }
+
+  function renderSummary() {
+    const s = lastRun.summary;
+    const base = lastRun.bases[0];
+    els.summaryGrid.innerHTML = [
+      card('Base', base.candidateId + ' (ECC ' + base.eccLevel + '/' + base.mask + ')'),
+      card('Baseline similarity', (base.fullSimilarity * 100).toFixed(2) + '%'),
+      card('Eligible mismatches', base.eligibleCount),
+      card('Clean candidates', s.cleanCandidateCount),
+      card('jsQR exact', s.jsqrExactCount + '/' + s.cleanCandidateCount),
+      card('Codeword budgets swept', lastRun.codewordBudgetResults.length),
+    ].join('');
+  }
+
+  function renderTable() {
+    const rows = A3.compareStrategies(lastRun.a2Results, lastRun.a3Results);
+    let html = '<tr><th>Budget</th><th>Similarity</th><th>A2 codewords (mean)</th><th>A3 codewords</th><th>A2 jsQR exact</th><th>A3 jsQR</th><th>Reduction</th></tr>';
+    for (const r of rows) {
+      html += '<tr><td>' + r.moduleBudget + '</td><td>' + (r.similarity * 100).toFixed(2) + '%</td>' +
+        '<td>' + r.a2AffectedCodewordsMean.toFixed(1) + '</td><td>' + r.a3AffectedCodewords + '</td>' +
+        '<td>' + r.a2ExactCount + '/' + r.a2TrialCount + '</td>' +
+        '<td>' + (r.a3JsqrExact ? '<span class="success">EXACT</span>' : 'fail') + '</td>' +
+        '<td>' + (r.affectedCodewordReductionVsA2Mean === null ? '' : r.affectedCodewordReductionVsA2Mean.toFixed(1)) + '</td></tr>';
+    }
+    els.compareTable.innerHTML = html;
+    const b = A3.boundaryObservations(lastRun.cleanResults);
+    els.boundaryInfo.textContent = 'Largest jsQR-exact budget: ' + (b.largestJsqrExactBudget ?? 'none') +
+      ' (similarity ' + (b.largestJsqrExactSimilarity === null ? 'n/a' : (b.largestJsqrExactSimilarity * 100).toFixed(2) + '%') + '). ' +
+      'OpenCV boundary appears after the local validator.';
+  }
+
+  function drawScatter(canvas, series, opts) {
+    const ctx = canvas.getContext('2d'); const W = canvas.width; const H = canvas.height; const pad = 46;
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    const [xMin, xMax] = opts.xDomain; const [yMin, yMax] = opts.yDomain;
+    const px = (x) => pad + ((x - xMin) / (xMax - xMin || 1)) * (W - pad - 16);
+    const py = (y) => H - pad - ((y - yMin) / (yMax - yMin || 1)) * (H - pad - 16);
+    ctx.strokeStyle = '#d0d7de'; ctx.strokeRect(pad, 16, W - pad - 16, H - pad - 16);
+    ctx.fillStyle = '#59636e'; ctx.font = '12px sans-serif';
+    ctx.fillText(opts.xLabel, W / 2 - 40, H - 10);
+    ctx.save(); ctx.translate(14, H / 2 + 30); ctx.rotate(-Math.PI / 2); ctx.fillText(opts.yLabel, 0, 0); ctx.restore();
+    for (let i = 0; i <= 4; i++) {
+      const y = yMin + ((yMax - yMin) * i) / 4; const yy = py(y);
+      ctx.strokeStyle = '#eef1f4'; ctx.beginPath(); ctx.moveTo(pad, yy); ctx.lineTo(W - 16, yy); ctx.stroke();
+      ctx.fillStyle = '#59636e'; ctx.fillText(y.toFixed(2), 4, yy + 4);
+    }
+    ctx.fillStyle = '#59636e';
+    for (let i = 0; i <= 4; i++) { const x = xMin + ((xMax - xMin) * i) / 4; ctx.fillText(String(Math.round(x)), px(x) - 6, H - pad + 16); }
+    for (const s of series) {
+      ctx.fillStyle = s.color;
+      for (const p of s.points) { ctx.beginPath(); ctx.arc(px(p.x), py(p.y), 3.5, 0, Math.PI * 2); ctx.fill(); }
+    }
+  }
+
+  function renderCharts() {
+    const a2 = lastRun.a2Results.map((c) => ({ x: c.affectedCodewordCount, y: c.fullSimilarityAfter }));
+    const a3 = lastRun.a3Results.map((c) => ({ x: c.affectedCodewordCount, y: c.fullSimilarityAfter }));
+    const maxCw = Math.max(1, ...a2.concat(a3).map((c) => c.x));
+    const sims = a2.concat(a3).map((c) => c.y);
+    drawScatter(els.chartCodewords, [
+      { color: '#cf222e', points: a2 }, { color: '#1a7f37', points: a3 },
+    ], { xLabel: 'affected codewords', yLabel: 'full similarity', xDomain: [0, maxCw], yDomain: [Math.min(...sims) - 0.02, Math.max(...sims) + 0.02] });
+    // Budget chart: A3 similarity and 1/0 exact marker.
+    const pts = lastRun.a3Results.map((c) => ({ x: c.moduleBudget, y: c.fullSimilarityAfter }));
+    drawScatter(els.chartBudget, [{ color: '#1a7f37', points: pts }], {
+      xLabel: 'module budget', yLabel: 'A3 similarity', xDomain: [0, Math.max(...pts.map((p) => p.x))], yDomain: [Math.min(...sims) - 0.02, Math.max(...sims) + 0.02],
+    });
+  }
+
+  function buildInspectorOptions() {
+    const bases = lastRun.bases;
+    els.basePickWrap.hidden = bases.length < 2;
+    els.inspBase.innerHTML = bases.map((b) => '<option value="' + b.candidateId + '">' + b.candidateId + '</option>').join('');
+    els.inspSeed.innerHTML = lastRun.seeds.map((s) => '<option value="' + s + '">' + s + '</option>').join('');
+    els.inspBudget.innerHTML = lastRun.budgets.map((b) => '<option value="' + b + '">' + b + '</option>').join('');
+    const lastExact = [...lastRun.a3Results].reverse().find((c) => c.jsqrDecodeStatus === 'EXACT');
+    if (lastExact) els.inspBudget.value = String(lastExact.moduleBudget);
+  }
+
+  function currentSelection() {
+    const baseId = els.basePickWrap.hidden ? lastRun.bases[0].candidateId : els.inspBase.value;
+    const seed = Number(els.inspSeed.value);
+    const budget = Number(els.inspBudget.value);
+    const base = lastRun.bases.find((b) => b.candidateId === baseId);
+    return {
+      base,
+      a2: lastRun.a2Results.find((c) => c.baseCandidateId === baseId && c.seed === seed && c.moduleBudget === budget),
+      a3: lastRun.a3Results.find((c) => c.baseCandidateId === baseId && c.moduleBudget === budget),
+    };
+  }
+
+  function renderInspector() {
+    const { base, a2, a3 } = currentSelection();
+    if (!base || !a3) return;
+    matrixToCanvas(els.insTarget, targetMatrix.map((r) => r.map((v) => v === 1)));
+    matrixToCanvas(els.insBase, base.baseMatrix);
+    if (a2) matrixToCanvas(els.insA2, a2.matrix);
+    matrixToCanvas(els.insA3, a3.matrix);
+    const canvas = els.insDiff; const size = 21; const scale = 7;
+    canvas.width = size * scale; canvas.height = size * scale;
+    const ctx = canvas.getContext('2d');
+    const roleMap = A1.buildVersion1RoleMap(a3.baseEcc);
+    const immutable = A1.IMMUTABLE_ROLES;
+    const changed = new Set(a3.changedPositions.map((p) => p.row + ',' + p.column));
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+      let color = '#ffffff';
+      if (immutable.includes(roleMap[r][c])) color = '#d0d7de';
+      else if (a3.matrix[r][c] === (targetMatrix[r][c] === 1)) color = changed.has(r + ',' + c) ? '#1a7f37' : '#ffffff';
+      else color = '#cf222e';
+      ctx.fillStyle = color; ctx.fillRect(c * scale, r * scale, scale, scale);
+    }
+    // codeword distribution
+    const flips = a3.flipsPerCodeword || {};
+    const indices = Object.keys(flips).map(Number).sort((x, y) => x - y);
+    const maxFlips = Math.max(1, ...indices.map((i) => flips[i]));
+    const roleMapTypes = {};
+    for (const p of a3.changedPositions) roleMapTypes[p.codewordIndex] = p.codewordType;
+    els.cwDistribution.innerHTML = indices.length ? indices.map((i) =>
+      '<div class="cwbar' + (roleMapTypes[i] === 'ECC' ? ' ecc' : '') + '"><span>CW ' + i + ' (' + roleMapTypes[i] + ')</span>' +
+      '<span class="bar" style="width:' + (100 * flips[i] / maxFlips) + '%"></span><span>' + flips[i] + ' flips</span></div>').join('')
+      : '<p class="hint">No affected codewords at this budget.</p>';
+    els.inspMeta.innerHTML =
+      '<span>A3 candidate</span><span>' + a3.candidateId + '</span>' +
+      '<span>Modified modules</span><span>' + a3.actualModifiedModules + '</span>' +
+      '<span>A3 affected codewords</span><span>' + a3.affectedCodewordCount + ' (packing ' + a3.packingEfficiency.toFixed(2) + ' modules/cw)</span>' +
+      '<span>A2 affected codewords</span><span>' + (a2 ? a2.affectedCodewordCount : 'n/a') + '</span>' +
+      '<span>Similarity</span><span>' + (a3.fullSimilarityAfter * 100).toFixed(2) + '% (both strategies)</span>' +
+      '<span>A3 clean decode</span><span>' + (a3.jsqrDecodeStatus || 'n/a') + '</span>';
+  }
+
+  function downloadText(filename, text, mime) { A1.downloadText(filename, text, mime); }
+  function targetName() { return els.targetSource.value === 'upload' ? ((targetMeta && targetMeta.source_file) || 'upload') : 'synthetic-' + els.targetSource.value; }
+
+  els.robustnessFile.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    file.text().then((text) => {
+      const lines = text.trim().split(/\r?\n/);
+      const header = lines[0].split(',');
+      robustnessRows = lines.slice(1).map((line) => {
+        const cells = line.split(',');
+        const row = {};
+        header.forEach((name, i) => { row[name] = cells[i]; });
+        return row;
+      });
+      els.robustnessWrap.hidden = false;
+      let html = '<tr><th>Candidate</th><th>Strategy</th><th>Budget</th><th>Similarity</th><th>Codewords</th><th>jsQR</th><th>OpenCV</th><th>Both</th></tr>';
+      for (const r of robustnessRows) {
+        html += '<tr><td>' + r.candidate_id + '</td><td>' + r.strategy + '</td><td>' + r.module_budget + '</td>' +
+          '<td>' + (Number(r.similarity) * 100).toFixed(2) + '%</td><td>' + r.affected_codewords + '</td>' +
+          '<td>' + r.jsqr_exact_count + '/' + r.transform_case_count + '</td>' +
+          '<td>' + r.opencv_exact_count + '/' + r.transform_case_count + '</td>' +
+          '<td>' + r.both_exact_count + '/' + r.transform_case_count + '</td></tr>';
+      }
+      els.robustnessTable.innerHTML = html;
+      const sims = robustnessRows.map((r) => Number(r.similarity));
+      const rates = robustnessRows.map((r) => Number(r.both_exact_rate));
+      drawScatter(els.chartRobust, [{ color: '#0969da', points: robustnessRows.map((r) => ({ x: Number(r.similarity), y: Number(r.both_exact_rate) })) }], {
+        xLabel: 'similarity', yLabel: 'both exact rate', xDomain: [Math.min(...sims) - 0.02, Math.max(...sims) + 0.02], yDomain: [0, 1],
+      });
+    });
+  });
+
+  // init
+  els.targetSource.innerHTML = A1.SYNTHETIC_TARGETS.map((n) => '<option value="' + n + '">Built-in: ' + (A1.SYNTHETIC_TARGET_LABELS[n] || n) + '</option>')
+    .concat('<option value="upload">Upload image (PNG / JPEG / WebP)</option>').join('');
+  els.manualEcc.innerHTML = A1.ECC_LEVELS.map((l) => '<option value="' + l + '">' + l + '</option>').join('');
+  els.manualMask.innerHTML = A1.MASK_IDS.map((m) => '<option value="' + m + '">' + m + '</option>').join('');
+
+  els.payload.addEventListener('input', updatePayload);
+  els.targetSource.addEventListener('change', () => { if (els.targetSource.value === 'upload') els.targetFile.click(); else setTargetFromSource(); });
+  els.targetFile.addEventListener('change', (e) => handleFile(e.target.files[0]));
+  els.baseMode.addEventListener('change', () => { els.manualBase.hidden = els.baseMode.value !== 'manual'; });
+  els.runButton.addEventListener('click', run);
+  els.exportClean.addEventListener('click', () => downloadText('clean_results.csv', A3.buildCleanCsv({ run: lastRun, targetName: targetName() }), 'text/csv'));
+  els.exportComparison.addEventListener('click', () => downloadText('strategy_comparison.csv', A3.buildStrategyComparisonCsv(A3.compareStrategies(lastRun.a2Results, lastRun.a3Results)), 'text/csv'));
+  els.exportCodeword.addEventListener('click', () => downloadText('codeword_budget_results.csv', A3.buildCodewordBudgetCsv(lastRun.codewordBudgetResults), 'text/csv'));
+  els.exportManifest.addEventListener('click', () => downloadText('manifest.json', JSON.stringify(A3.buildManifest({ run: lastRun, targetName: targetName() }), null, 2), 'application/json'));
+  els.inspBase.addEventListener('change', renderInspector);
+  els.inspSeed.addEventListener('change', renderInspector);
+  els.inspBudget.addEventListener('change', renderInspector);
+
+  updatePayload();
+  setTargetFromSource();
+})();
+</script>
+</body>
+</html>

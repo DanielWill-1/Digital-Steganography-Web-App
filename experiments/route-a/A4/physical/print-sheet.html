@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A4 — Print Sheet</title>
+<style>
+  :root { --border:#d0d7de; --text:#1f2328; --muted:#59636e; --accent:#0969da; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#f6f8fa; color:var(--text); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:1000px; margin:0 auto; padding:20px; }
+  h1 { font-size:20px; margin:0 0 6px; }
+  .panel { background:#fff; border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:16px; }
+  label { display:block; color:var(--muted); font-size:12px; margin-bottom:4px; }
+  input, select { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font:inherit; background:#fff; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:9px 16px; font:inherit; font-weight:600; cursor:pointer; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
+  .row > div { flex:1 1 190px; }
+  .note { color:var(--muted); font-size:12px; }
+  /* Print layout */
+  .sheet { background:#fff; margin-top:16px; padding:6mm; }
+  .ruler { width:100mm; height:8mm; border:0.4mm solid #000; display:flex; }
+  .ruler span { flex:1; border-right:0.2mm solid #000; }
+  .ruler span:last-child { border-right:0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(60mm, 1fr)); gap:8mm; margin-top:6mm; }
+  .item { border:0.3mm dashed #999; padding:3mm; break-inside:avoid; page-break-inside:avoid; text-align:center; }
+  .item img { image-rendering:pixelated; display:block; margin:0 auto; }
+  .item figcaption { font-size:3.2mm; color:#000; margin-top:1.5mm; line-height:1.35; }
+  @media print {
+    body { background:#fff; }
+    main { padding:0; max-width:none; }
+    .no-print { display:none !important; }
+    .grid { grid-template-columns:repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>A4 — Print Sheet</h1>
+  <div class="panel no-print">
+    <div class="row">
+      <div>
+        <label for="files">Candidate PNGs (from outputs/gen/)</label>
+        <input id="files" type="file" accept="image/png" multiple>
+      </div>
+      <div>
+        <label for="width">Physical QR width</label>
+        <select id="width">
+          <option value="25">25 mm</option>
+          <option value="40" selected>40 mm</option>
+          <option value="60">60 mm</option>
+        </select>
+      </div>
+      <div>
+        <label for="measure">Measurement convention</label>
+        <select id="measure">
+          <option value="qr" selected>21×21 QR area only (excludes quiet zone)</option>
+          <option value="qrq">QR + quiet zone</option>
+        </select>
+      </div>
+      <div style="flex:0 0 auto"><button id="print">Print</button></div>
+    </div>
+    <p class="note">Print at 100% / actual size. Verify the 100 mm ruler measures 100 mm on paper.
+    Labels are placed outside the four-module quiet zone. Do not print with "fit to page".</p>
+  </div>
+
+  <div class="sheet" id="sheet">
+    <p class="note no-print">No candidates loaded yet.</p>
+  </div>
+</main>
+
+<script>
+(function () {
+  const els = { files: document.getElementById('files'), width: document.getElementById('width'), measure: document.getElementById('measure'), print: document.getElementById('print'), sheet: document.getElementById('sheet') };
+  let items = []; // { name, url }
+  const urls = [];
+
+  function render() {
+    const qrMm = Number(els.width.value);
+    const convention = els.measure.value;
+    // Image includes a 4-module quiet zone each side: 29 modules vs 21 QR modules.
+    const imageMm = convention === 'qr' ? (qrMm * 29) / 21 : qrMm;
+    let html = '<div class="ruler" aria-label="100 millimetre calibration ruler">' +
+      Array.from({ length: 10 }, () => '<span></span>').join('') + '</div>' +
+      `<p class="note">Ruler = 100 mm. Symbol image width = ${imageMm.toFixed(1)} mm ` +
+      `(${convention === 'qr' ? `${qrMm} mm QR area only` : `${qrMm} mm including quiet zone`}). ` +
+      `QR module pitch ≈ ${(imageMm / 29).toFixed(2)} mm.</p><div class="grid">`;
+    for (const item of items) {
+      html += `<figure class="item"><img src="${item.url}" style="width:${imageMm.toFixed(1)}mm;height:${imageMm.toFixed(1)}mm" alt="${item.name}">` +
+        `<figcaption>${item.name}<br>target: ${item.target || 'unknown'} · strategy: ${item.strategy || 'unknown'}<br>intended QR width: ${qrMm} mm</figcaption></figure>`;
+    }
+    html += '</div>';
+    els.sheet.innerHTML = html;
+  }
+
+  els.files.addEventListener('change', (event) => {
+    for (const url of urls) URL.revokeObjectURL(url);
+    urls.length = 0;
+    items = Array.from(event.target.files).map((file) => {
+      const url = URL.createObjectURL(file);
+      urls.push(url);
+      const parts = file.name.replace(/\.png$/i, '').split('_');
+      return { name: file.name.replace(/\.png$/i, ''), url, target: parts[1], strategy: file.name.includes('packed') ? 'A3_PACKED' : (file.name.includes('a2') ? 'A2_RANDOM' : 'A1_BASE') };
+    });
+    render();
+  });
+  els.width.addEventListener('change', render);
+  els.measure.addEventListener('change', render);
+  els.print.addEventListener('click', () => window.print());
+})();
+</script>
+</body>
+</html>
